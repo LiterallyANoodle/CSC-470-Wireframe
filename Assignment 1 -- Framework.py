@@ -13,9 +13,30 @@ import math
 import copy
 from tkinter import *
 
-CanvasWidth = 400
-CanvasHeight = 400
-d = 500
+# Constants 
+CANVAS_WIDTH = 400
+CANVAS_HEIGHT = 400
+CAMERA_Z_OFFSET = -500
+
+# point type hint 
+type Point3 = tuple[float, float, float]
+
+# Polygons Class 
+# The polygon class does not actually hold any points in it, but rather references to points in the dictionary that is the object's pointcloud
+# This is done to more elegantly prevent point duplication in the pointCloud 
+class Polygon:
+    points: list[int] = []
+    def __init__(this, points):
+        this.points = points
+
+# Object Class 
+class Object:
+    polygons: list[Polygon] = []
+    pointCloud: list[Point3] = []
+    def __init__(this, polygons, points):
+        this.polygons = polygons
+        this.pointCloud = points
+
 
 # ***************************** Initialize Pyramid Object ***************************
 # Definition  of the five underlying points
@@ -25,20 +46,21 @@ base2 = [50,-50,150]
 base3 = [-50,-50,150]
 base4 = [-50,-50,50]
 
+pyramidPoints = [apex, base1, base2, base3, base4]
+
 # Definition of the five polygon faces using the meaningful point names
 # Polys are defined in clockwise order when viewed from the outside
-frontpoly = [apex,base1,base4]
-rightpoly = [apex,base2,base1]
-backpoly = [apex,base3,base2]
-leftpoly = [apex,base4,base3]
-bottompoly = [base1,base2,base3,base4]
+frontpoly = [0, 1, 4]
+rightpoly = [0, 2, 1]
+backpoly = [0, 3, 2]
+leftpoly = [0, 4, 3]
+bottompoly = [1, 2, 3, 4]
 
-# Definition of the object
-Pyramid = [bottompoly, frontpoly, rightpoly, backpoly, leftpoly]
+pyramidPolys = [frontpoly, rightpoly, backpoly, leftpoly, bottompoly]
 
-# Definition of the Pyramid's underlying point cloud.  No structure, just the points.
-PyramidPointCloud = [apex, base1, base2, base3, base4]
-DefaultPyramidPointCloud = copy.deepcopy(PyramidPointCloud)
+# create the pyramid object from defined data as well as a copy of the points for later
+Pyramid1 = Object(pyramidPolys, pyramidPoints)
+DefaultPyramidPointCloud = copy.deepcopy(pyramidPoints)
 #************************************************************************************
 
 # This function resets the pyramid to its original size and location in 3D space
@@ -111,81 +133,106 @@ def convertToDisplayCoordinates(point):
     displayXY = []
     # some stuff happens
     return displayXY
+
+# Linear interpolation 
+# Returns a list of numbers that are linearly evenly spaced out 
+# The length of the list is determined by the number of steps requested
+# Because no libraries may be imported, we cannot use time to make this framerate independent. "steps" is effectively how many frames it should take, which will be very fast.
+def lerp(start: float, end: float, steps: int) -> list[float]:
+
+    intermediates = []
+
+    stepSize = (end - start) / steps
     
+    for step in range(steps):
+        intermediates.append(step * stepSize + start)
+    # manually append the final state to ensure there's no floating point rounding error shenannigans
+    intermediates.append(float(end))
+
+    return intermediates
+
+# Check if two points occupy the same space 
+# Useful for determining possible duplicate points in an object 
+def areSimilarPoints(p1: Point3, p2: Point3) -> bool:
+    for i in len(p1):
+        if p1[i] != p2[2]:
+            return False
+    return True
+        
 
 # **************************************************************************
 # Everything below this point implements the interface
-def reset():
+def reset(w):
     w.delete(ALL)
     resetPyramid()
     drawObject(Pyramid)
 
-def larger():
+def larger(w):
     w.delete(ALL)
     scale(PyramidPointCloud,1.1)
     drawObject(Pyramid)
 
-def smaller():
+def smaller(w):
     w.delete(ALL)
     scale(PyramidPointCloud,.9)
     drawObject(Pyramid)
 
-def forward():
+def forward(w):
     w.delete(ALL)
     translate(PyramidPointCloud,[0,0,5])
     drawObject(Pyramid)
 
-def backward():
+def backward(w):
     w.delete(ALL)
     translate(PyramidPointCloud,[0,0,-5])
     drawObject(Pyramid)
 
-def left():
+def left(w):
     w.delete(ALL)
     translate(PyramidPointCloud,[-5,0,0])
     drawObject(Pyramid)
 
-def right():
+def right(w):
     w.delete(ALL)
     translate(PyramidPointCloud,[5,0,0])
     drawObject(Pyramid)
 
-def up():
+def up(w):
     w.delete(ALL)
     translate(PyramidPointCloud,[0,5,0])
     drawObject(Pyramid)
 
-def down():
+def down(w):
     w.delete(ALL)
     translate(PyramidPointCloud,[0,-5,0])
     drawObject(Pyramid)
 
-def xPlus():
+def xPlus(w):
     w.delete(ALL)
     rotateX(PyramidPointCloud,5)
     drawObject(Pyramid)
 
-def xMinus():
+def xMinus(w):
     w.delete(ALL)
     rotateX(PyramidPointCloud,-5)
     drawObject(Pyramid)
 
-def yPlus():
+def yPlus(w):
     w.delete(ALL)
     rotateY(PyramidPointCloud,5)
     drawObject(Pyramid)
 
-def yMinus():
+def yMinus(w):
     w.delete(ALL)
     rotateY(PyramidPointCloud,-5)
     drawObject(Pyramid)
 
-def zPlus():
+def zPlus(w):
     w.delete(ALL)
     rotateZ(PyramidPointCloud,5)
     drawObject(Pyramid)
 
-def zMinus():
+def zMinus(w):
     w.delete(ALL)
     rotateZ(PyramidPointCloud,-5)
     drawObject(Pyramid)
@@ -195,7 +242,7 @@ if __name__ == "__main__":
     outerframe = Frame(root)
     outerframe.pack()
 
-    w = Canvas(outerframe, width=CanvasWidth, height=CanvasHeight)
+    w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT)
     drawObject(Pyramid)
     w.pack()
 
@@ -208,7 +255,7 @@ if __name__ == "__main__":
     resetcontrolslabel = Label(resetcontrols, text="Reset")
     resetcontrolslabel.pack()
 
-    resetButton = Button(resetcontrols, text="Reset", fg="green", command=reset)
+    resetButton = Button(resetcontrols, text="Reset", fg="green", command=(lambda : reset(w)))
     resetButton.pack(side=LEFT)
 
     scalecontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
@@ -217,10 +264,10 @@ if __name__ == "__main__":
     scalecontrolslabel = Label(scalecontrols, text="Scale")
     scalecontrolslabel.pack()
 
-    largerButton = Button(scalecontrols, text="Larger", command=larger)
+    largerButton = Button(scalecontrols, text="Larger", command=(lambda: larger(w)))
     largerButton.pack(side=LEFT)
 
-    smallerButton = Button(scalecontrols, text="Smaller", command=smaller)
+    smallerButton = Button(scalecontrols, text="Smaller", command=(lambda: smaller(w)))
     smallerButton.pack(side=LEFT)
 
     translatecontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
@@ -229,22 +276,22 @@ if __name__ == "__main__":
     translatecontrolslabel = Label(translatecontrols, text="Translation")
     translatecontrolslabel.pack()
 
-    forwardButton = Button(translatecontrols, text="FW", command=forward)
+    forwardButton = Button(translatecontrols, text="FW", command=(lambda: forward(w)))
     forwardButton.pack(side=LEFT)
 
-    backwardButton = Button(translatecontrols, text="BK", command=backward)
+    backwardButton = Button(translatecontrols, text="BK", command=(lambda: backward(w)))
     backwardButton.pack(side=LEFT)
 
-    leftButton = Button(translatecontrols, text="LF", command=left)
+    leftButton = Button(translatecontrols, text="LF", command=(lambda: left(w)))
     leftButton.pack(side=LEFT)
 
-    rightButton = Button(translatecontrols, text="RT", command=right)
+    rightButton = Button(translatecontrols, text="RT", command=(lambda: right(w)))
     rightButton.pack(side=LEFT)
 
-    upButton = Button(translatecontrols, text="UP", command=up)
+    upButton = Button(translatecontrols, text="UP", command=(lambda: up(w)))
     upButton.pack(side=LEFT)
 
-    downButton = Button(translatecontrols, text="DN", command=down)
+    downButton = Button(translatecontrols, text="DN", command=(lambda: down(w)))
     downButton.pack(side=LEFT)
 
     rotationcontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
@@ -253,22 +300,22 @@ if __name__ == "__main__":
     rotationcontrolslabel = Label(rotationcontrols, text="Rotation")
     rotationcontrolslabel.pack()
 
-    xPlusButton = Button(rotationcontrols, text="X+", command=xPlus)
+    xPlusButton = Button(rotationcontrols, text="X+", command=(lambda: xPlus(w)))
     xPlusButton.pack(side=LEFT)
 
-    xMinusButton = Button(rotationcontrols, text="X-", command=xMinus)
+    xMinusButton = Button(rotationcontrols, text="X-", command=(lambda: xMinus(w)))
     xMinusButton.pack(side=LEFT)
 
-    yPlusButton = Button(rotationcontrols, text="Y+", command=yPlus)
+    yPlusButton = Button(rotationcontrols, text="Y+", command=(lambda: yPlus(w)))
     yPlusButton.pack(side=LEFT)
 
-    yMinusButton = Button(rotationcontrols, text="Y-", command=yMinus)
+    yMinusButton = Button(rotationcontrols, text="Y-", command=(lambda: yMinus(w)))
     yMinusButton.pack(side=LEFT)
 
-    zPlusButton = Button(rotationcontrols, text="Z+", command=zPlus)
+    zPlusButton = Button(rotationcontrols, text="Z+", command=(lambda: zPlus(w)))
     zPlusButton.pack(side=LEFT)
 
-    zMinusButton = Button(rotationcontrols, text="Z-", command=zMinus)
+    zMinusButton = Button(rotationcontrols, text="Z-", command=(lambda: zMinus(w)))
     zMinusButton.pack(side=LEFT)
 
     root.mainloop()
