@@ -33,9 +33,11 @@ class Polygon:
 class Object:
     polygons: list[Polygon] = []
     pointCloud: list[Point3] = []
+    defaultPointCloud: list[Point3] = []
     def __init__(this, polygons, points):
         this.polygons = polygons
         this.pointCloud = points
+        this.defaultPointCloud = copy.deepcopy(points)
 
 
 # ***************************** Initialize Pyramid Object ***************************
@@ -58,9 +60,8 @@ bottompoly = [1, 2, 3, 4]
 
 pyramidPolys = [frontpoly, rightpoly, backpoly, leftpoly, bottompoly]
 
-# create the pyramid object from defined data as well as a copy of the points for later
+# create the pyramid object from defined data
 Pyramid1 = Object(pyramidPolys, pyramidPoints)
-DefaultPyramidPointCloud = copy.deepcopy(pyramidPoints)
 #************************************************************************************
 
 # This function resets the pyramid to its original size and location in 3D space
@@ -68,10 +69,10 @@ DefaultPyramidPointCloud = copy.deepcopy(pyramidPoints)
 # structure rather than creating a new structure or just switching a pointer.  In other
 # words, you'll need manually update the value of every x, y, and z of every point in
 # point cloud (vertex list).
-def resetPyramid():
-    for i in range(len(PyramidPointCloud)):
+def resetObject(object):
+    for i in range(len(object.pointCloud)):
         for j in range(3):
-            PyramidPointCloud[i][j] = DefaultPyramidPointCloud[i][j]
+            object.pointCloud[i][j] = object.defaultPointCloud[i][j]
 
 
 # This function translates an object by some displacement.  The displacement is a 3D
