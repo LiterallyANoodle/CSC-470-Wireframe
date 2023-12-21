@@ -40,28 +40,6 @@ class Object:
         this.defaultPointCloud = copy.deepcopy(points)
 
 
-# ***************************** Initialize Pyramid Object ***************************
-# Definition  of the five underlying points
-apex = [0,50,100]
-base1 = [50,-50,50]
-base2 = [50,-50,150]
-base3 = [-50,-50,150]
-base4 = [-50,-50,50]
-
-pyramidPoints = [apex, base1, base2, base3, base4]
-
-# Definition of the five polygon faces using the meaningful point names
-# Polys are defined in clockwise order when viewed from the outside
-frontpoly = [0, 1, 4]
-rightpoly = [0, 2, 1]
-backpoly = [0, 3, 2]
-leftpoly = [0, 4, 3]
-bottompoly = [1, 2, 3, 4]
-
-pyramidPolys = [frontpoly, rightpoly, backpoly, leftpoly, bottompoly]
-
-# create the pyramid object from defined data
-Pyramid1 = Object(pyramidPolys, pyramidPoints)
 #************************************************************************************
 
 # This function resets the pyramid to its original size and location in 3D space
@@ -82,25 +60,25 @@ def translate(object, displacement):
     
 # This function performs a simple uniform scale of an object assuming the object is
 # centered at the origin.  The scalefactor is a scalar.
-def scale(object,scalefactor):
+def scale(object, scalefactor):
     print("scale stub executed.")
 
 # This function performs a rotation of an object about the Z axis (from +X to +Y)
 # by 'degrees', assuming the object is centered at the origin.  The rotation is CCW
 # in a LHS when viewed from -Z [the location of the viewer in the standard postion]
-def rotateZ(object,degrees):
+def rotateZ(object, degrees):
     print("rotateZ stub executed.")
     
 # This function performs a rotation of an object about the Y axis (from +Z to +X)
 # by 'degrees', assuming the object is centered at the origin.  The rotation is CW
 # in a LHS when viewed from +Y looking toward the origin.
-def rotateY(object,degrees):
+def rotateY(object, degrees):
     print("rotateY stub executed.")
 
 # This function performs a rotation of an object about the X axis (from +Y to +Z)
 # by 'degrees', assuming the object is centered at the origin.  The rotation is CW
 # in a LHS when viewed from +X looking toward the origin.
-def rotateX(object,degrees):
+def rotateX(object, degrees):
     print("rotateX stub executed.")
 
 # The function will draw an object by repeatedly callying drawPoly on each polygon in the object
@@ -115,8 +93,8 @@ def drawPoly(poly):
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
 # draw the actual line using the built-in create_line method
-def drawLine(start,end):
-    #        w.create_line(startdisplay[0],startdisplay[1],enddisplay[0],enddisplay[1])
+def drawLine(start, end):
+    #        window.create_line(startdisplay[0],startdisplay[1],enddisplay[0],enddisplay[1])
     print("drawLine stub executed.")
 
 # This function converts from 3D to 2D (+ depth) using the perspective projection technique.  Note that it
@@ -163,88 +141,112 @@ def areSimilarPoints(p1: Point3, p2: Point3) -> bool:
 
 # **************************************************************************
 # Everything below this point implements the interface
-def reset(w):
-    w.delete(ALL)
-    resetPyramid()
-    drawObject(Pyramid)
+def reset(window, object):
+    window.delete(ALL)
+    resetObject(object)
+    drawObject(object)
 
-def larger(w):
-    w.delete(ALL)
-    scale(PyramidPointCloud,1.1)
-    drawObject(Pyramid)
+def larger(window, object):
+    window.delete(ALL)
+    scale(object.pointCloud, 1.1)
+    drawObject(object)
 
-def smaller(w):
-    w.delete(ALL)
-    scale(PyramidPointCloud,.9)
-    drawObject(Pyramid)
+def smaller(window, object):
+    window.delete(ALL)
+    scale(object.pointCloud, .9)
+    drawObject(object)
 
-def forward(w):
-    w.delete(ALL)
-    translate(PyramidPointCloud,[0,0,5])
-    drawObject(Pyramid)
+def forward(window, object):
+    window.delete(ALL)
+    translate(object.pointCloud, [0,0,5])
+    drawObject(object)
 
-def backward(w):
-    w.delete(ALL)
-    translate(PyramidPointCloud,[0,0,-5])
-    drawObject(Pyramid)
+def backward(window, object):
+    window.delete(ALL)
+    translate(object.pointCloud, [0,0,-5])
+    drawObject(object)
 
-def left(w):
-    w.delete(ALL)
-    translate(PyramidPointCloud,[-5,0,0])
-    drawObject(Pyramid)
+def left(window, object):
+    window.delete(ALL)
+    translate(object.pointCloud, [-5,0,0])
+    drawObject(object)
 
-def right(w):
-    w.delete(ALL)
-    translate(PyramidPointCloud,[5,0,0])
-    drawObject(Pyramid)
+def right(window, object):
+    window.delete(ALL)
+    translate(object.pointCloud, [5,0,0])
+    drawObject(object)
 
-def up(w):
-    w.delete(ALL)
-    translate(PyramidPointCloud,[0,5,0])
-    drawObject(Pyramid)
+def up(window, object):
+    window.delete(ALL)
+    translate(object.pointCloud, [0,5,0])
+    drawObject(object)
 
-def down(w):
-    w.delete(ALL)
-    translate(PyramidPointCloud,[0,-5,0])
-    drawObject(Pyramid)
+def down(window, object):
+    window.delete(ALL)
+    translate(object.pointCloud, [0,-5,0])
+    drawObject(object)
 
-def xPlus(w):
-    w.delete(ALL)
-    rotateX(PyramidPointCloud,5)
-    drawObject(Pyramid)
+def xPlus(window, object):
+    window.delete(ALL)
+    rotateX(object.pointCloud, 5)
+    drawObject(object)
 
-def xMinus(w):
-    w.delete(ALL)
-    rotateX(PyramidPointCloud,-5)
-    drawObject(Pyramid)
+def xMinus(window, object):
+    window.delete(ALL)
+    rotateX(object.pointCloud, -5)
+    drawObject(object)
 
-def yPlus(w):
-    w.delete(ALL)
-    rotateY(PyramidPointCloud,5)
-    drawObject(Pyramid)
+def yPlus(window, object):
+    window.delete(ALL)
+    rotateY(object.pointCloud, 5)
+    drawObject(object)
 
-def yMinus(w):
-    w.delete(ALL)
-    rotateY(PyramidPointCloud,-5)
-    drawObject(Pyramid)
+def yMinus(window, object):
+    window.delete(ALL)
+    rotateY(object.pointCloud, -5)
+    drawObject(object)
 
-def zPlus(w):
-    w.delete(ALL)
-    rotateZ(PyramidPointCloud,5)
-    drawObject(Pyramid)
+def zPlus(window, object):
+    window.delete(ALL)
+    rotateZ(object.pointCloud, 5)
+    drawObject(object)
 
-def zMinus(w):
-    w.delete(ALL)
-    rotateZ(PyramidPointCloud,-5)
-    drawObject(Pyramid)
+def zMinus(window, object):
+    window.delete(ALL)
+    rotateZ(object.pointCloud, -5)
+    drawObject(object)
 
 if __name__ == "__main__":
+
+    # ***************************** Initialize Pyramid Object ***************************
+    # Definition  of the five underlying points
+    apex = [0,50,100]
+    base1 = [50,-50,50]
+    base2 = [50,-50,150]
+    base3 = [-50,-50,150]
+    base4 = [-50,-50,50]
+
+    pyramidPoints = [apex, base1, base2, base3, base4]
+
+    # Definition of the five polygon faces using the meaningful point names
+    # Polys are defined in clockwise order when viewed from the outside
+    frontpoly = [0, 1, 4]
+    rightpoly = [0, 2, 1]
+    backpoly = [0, 3, 2]
+    leftpoly = [0, 4, 3]
+    bottompoly = [1, 2, 3, 4]
+
+    pyramidPolys = [frontpoly, rightpoly, backpoly, leftpoly, bottompoly]
+
+    # create the pyramid object from defined data
+    Pyramid1 = Object(pyramidPolys, pyramidPoints)
+
     root = Tk()
     outerframe = Frame(root)
     outerframe.pack()
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT)
-    drawObject(Pyramid)
+    drawObject(Pyramid1)
     w.pack()
 
     controlpanel = Frame(outerframe)
