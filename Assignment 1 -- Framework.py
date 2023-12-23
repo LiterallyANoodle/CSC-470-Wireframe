@@ -20,6 +20,7 @@ CAMERA_Z_OFFSET = -500
 
 # point type hint 
 type Point3 = tuple[float, float, float]
+type Point2 = tuple[float, float]
 
 # Polygons Class 
 # The polygon class does not actually hold any points in it, but rather references to points in the dictionary that is the object's pointcloud
@@ -87,30 +88,51 @@ def drawObject(object):
 
 # This function will draw a polygon by repeatedly callying drawLine on each pair of points
 # making up the object.  Remember to draw a line between the last point and the first.
-def drawPoly(poly):
-    print("drawPoly stub executed.")
+def drawPoly(window, poly: Polygon) -> None:
+
+    # create each pair of points to be drawn as a line 
+    pairs = []
+    for i in range(len(poly.points)):
+        pass
+
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
 # draw the actual line using the built-in create_line method
-def drawLine(start, end):
-    #        window.create_line(startdisplay[0],startdisplay[1],enddisplay[0],enddisplay[1])
-    print("drawLine stub executed.")
+def drawLine(window, start: Point2, end: Point2) -> None:
+    
+    start_proj, end_proj = projectToDisplayCoordinates([start, end], window.winfo_reqwidth(), window.winfo_reqheight())
+
+    window.create_line(start_proj[0], start_proj[1], end_proj[0], end_proj[1])
 
 # This function converts from 3D to 2D (+ depth) using the perspective projection technique.  Note that it
 # will return a NEW list of points.  We will not want to keep around the projected points in our object as
 # they are only used in rendering
-def project(point):
+# Assumes the viewer is at (0, 0, -distance), looking up the Z axis 
+def project(points: list[Point3], distance: float) -> list[Point2]:
+    
     ps = []
-    # some stuff happens
+    
+    for point in points:
+        x_proj = distance * (point[0] / (distance + point[0]))
+        y_proj = distance * (point[1] / (distance + point[1]))
+        ps.append((x_proj, y_proj))
+
     return ps
 
 # This function converts a 2D point to display coordinates in the tk system.  Note that it will return a
 # NEW list of points.  We will not want to keep around the display coordinate points in our object as 
 # they are only used in rendering.
-def convertToDisplayCoordinates(point):
+# Assumes the center of the canvas is the origin of the original coordinates 
+def projectToDisplayCoordinates(points: list[Point2], width: int, height: int) -> list[Point2]:
+    
     displayXY = []
-    # some stuff happens
+
+    for point in points:
+        x_proj = (width / 2) + point[0]
+        y_proj = (height / 2) - point[1]
+        displayXY.append((x_proj, y_proj))
+
     return displayXY
 
 # Linear interpolation 
@@ -245,7 +267,7 @@ if __name__ == "__main__":
     outerframe = Frame(root)
     outerframe.pack()
 
-    w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT)
+    w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
     drawObject(Pyramid1)
     w.pack()
 
@@ -258,7 +280,7 @@ if __name__ == "__main__":
     resetcontrolslabel = Label(resetcontrols, text="Reset")
     resetcontrolslabel.pack()
 
-    resetButton = Button(resetcontrols, text="Reset", fg="green", command=(lambda : reset(w)))
+    resetButton = Button(resetcontrols, text="Reset", fg="green", command=(lambda: reset(w)))
     resetButton.pack(side=LEFT)
 
     scalecontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
@@ -320,5 +342,8 @@ if __name__ == "__main__":
 
     zMinusButton = Button(rotationcontrols, text="Z-", command=(lambda: zMinus(w)))
     zMinusButton.pack(side=LEFT)
+
+    drawLine(w, (0, 0), (100, 100))
+    
 
     root.mainloop()
