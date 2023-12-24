@@ -19,8 +19,8 @@ CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = -500
 
 # point type hint 
-type Point3 = tuple[float, float, float]
-type Point2 = tuple[float, float]
+type Vector3 = tuple[float, float, float]
+type Vector2 = tuple[float, float]
 
 # Polygons Class 
 # The polygon class does not actually hold any points in it, but rather references to points in the dictionary that is the object's pointcloud
@@ -33,8 +33,8 @@ class Polygon:
 # Object Class 
 class Object:
     polygons: list[Polygon] = []
-    pointCloud: list[Point3] = []
-    defaultPointCloud: list[Point3] = []
+    pointCloud: list[Vector3] = []
+    defaultPointCloud: list[Vector3] = []
     def __init__(this, polygons, points):
         this.polygons = polygons
         this.pointCloud = points
@@ -56,8 +56,12 @@ def resetObject(object):
 
 # This function translates an object by some displacement.  The displacement is a 3D
 # vector so the amount of displacement in each dimension can vary.
-def translate(object, displacement):
-    print("translate stub executed.")
+def translate(object: Object, displacement: Vector3) -> None:
+    
+    # add the displacement over all points in all dimensions 
+    for point in object.pointCloud:
+        for dimension in range(len(point)):
+            point[dimension] = point[dimension] + displacement[dimension]
     
 # This function performs a simple uniform scale of an object assuming the object is
 # centered at the origin.  The scalefactor is a scalar.
@@ -107,7 +111,7 @@ def drawPoly(window, poly: Polygon, object: Object) -> None:
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
 # draw the actual line using the built-in create_line method
-def drawLine(window, start: Point2, end: Point2) -> None:
+def drawLine(window, start: Vector2, end: Vector2) -> None:
     
     start_proj, end_proj = projectToDisplayCoordinates([start, end], window.winfo_reqwidth(), window.winfo_reqheight())
 
@@ -117,13 +121,13 @@ def drawLine(window, start: Point2, end: Point2) -> None:
 # will return a NEW list of points.  We will not want to keep around the projected points in our object as
 # they are only used in rendering
 # Assumes the viewer is at (0, 0, -distance), looking up the Z axis 
-def project(points: list[Point3], distance: float) -> list[Point2]:
+def project(points: list[Vector3], distance: float) -> list[Vector2]:
     
     ps = []
     
     for point in points:
-        x_proj = distance * (point[0] / (distance + point[0]))
-        y_proj = distance * (point[1] / (distance + point[1]))
+        x_proj = distance * (point[0] / (distance + point[2]))
+        y_proj = distance * (point[1] / (distance + point[2]))
         ps.append((x_proj, y_proj))
 
     return ps
@@ -132,7 +136,7 @@ def project(points: list[Point3], distance: float) -> list[Point2]:
 # NEW list of points.  We will not want to keep around the display coordinate points in our object as 
 # they are only used in rendering.
 # Assumes the center of the canvas is the origin of the original coordinates 
-def projectToDisplayCoordinates(points: list[Point2], width: int, height: int) -> list[Point2]:
+def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) -> list[Vector2]:
     
     displayXY = []
 
@@ -162,7 +166,7 @@ def lerp(start: float, end: float, steps: int) -> list[float]:
 
 # Check if two points occupy the same space 
 # Useful for determining possible duplicate points in an object 
-def areSimilarPoints(p1: Point3, p2: Point3) -> bool:
+def areSimilarPoints(p1: Vector3, p2: Vector3) -> bool:
     for i in len(p1):
         if p1[i] != p2[2]:
             return False
@@ -174,77 +178,77 @@ def areSimilarPoints(p1: Point3, p2: Point3) -> bool:
 def reset(window, object):
     window.delete(ALL)
     resetObject(object)
-    drawObject(object)
+    drawObject(window, object)
 
 def larger(window, object):
     window.delete(ALL)
     scale(object.pointCloud, 1.1)
-    drawObject(object)
+    drawObject(window, object)
 
 def smaller(window, object):
     window.delete(ALL)
     scale(object.pointCloud, .9)
-    drawObject(object)
+    drawObject(window, object)
 
 def forward(window, object):
     window.delete(ALL)
-    translate(object.pointCloud, [0,0,5])
-    drawObject(object)
+    translate(object, (0,0,5))
+    drawObject(window, object)
 
 def backward(window, object):
     window.delete(ALL)
-    translate(object.pointCloud, [0,0,-5])
-    drawObject(object)
+    translate(object, (0,0,-5))
+    drawObject(window, object)
 
 def left(window, object):
     window.delete(ALL)
-    translate(object.pointCloud, [-5,0,0])
-    drawObject(object)
+    translate(object, (-5,0,0))
+    drawObject(window, object)
 
 def right(window, object):
     window.delete(ALL)
-    translate(object.pointCloud, [5,0,0])
-    drawObject(object)
+    translate(object, (5,0,0))
+    drawObject(window, object)
 
 def up(window, object):
     window.delete(ALL)
-    translate(object.pointCloud, [0,5,0])
-    drawObject(object)
+    translate(object, (0,5,0))
+    drawObject(window, object)
 
 def down(window, object):
     window.delete(ALL)
-    translate(object.pointCloud, [0,-5,0])
-    drawObject(object)
+    translate(object, (0,-5,0))
+    drawObject(window, object)
 
 def xPlus(window, object):
     window.delete(ALL)
     rotateX(object.pointCloud, 5)
-    drawObject(object)
+    drawObject(window, object)
 
 def xMinus(window, object):
     window.delete(ALL)
     rotateX(object.pointCloud, -5)
-    drawObject(object)
+    drawObject(window, object)
 
 def yPlus(window, object):
     window.delete(ALL)
     rotateY(object.pointCloud, 5)
-    drawObject(object)
+    drawObject(window, object)
 
 def yMinus(window, object):
     window.delete(ALL)
     rotateY(object.pointCloud, -5)
-    drawObject(object)
+    drawObject(window, object)
 
 def zPlus(window, object):
     window.delete(ALL)
     rotateZ(object.pointCloud, 5)
-    drawObject(object)
+    drawObject(window, object)
 
 def zMinus(window, object):
     window.delete(ALL)
     rotateZ(object.pointCloud, -5)
-    drawObject(object)
+    drawObject(window, object)
 
 if __name__ == "__main__":
 
@@ -296,8 +300,10 @@ if __name__ == "__main__":
     outerframe = Frame(root)
     outerframe.pack()
 
+    selected_object = Pyramid1
+
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
-    drawObject(w, Tetrahedron1)
+    drawObject(w, selected_object)
     w.pack()
 
     controlpanel = Frame(outerframe)
@@ -309,7 +315,7 @@ if __name__ == "__main__":
     resetcontrolslabel = Label(resetcontrols, text="Reset")
     resetcontrolslabel.pack()
 
-    resetButton = Button(resetcontrols, text="Reset", fg="green", command=(lambda: reset(w)))
+    resetButton = Button(resetcontrols, text="Reset", fg="green", command=(lambda: reset(w, selected_object)))
     resetButton.pack(side=LEFT)
 
     scalecontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
@@ -318,10 +324,10 @@ if __name__ == "__main__":
     scalecontrolslabel = Label(scalecontrols, text="Scale")
     scalecontrolslabel.pack()
 
-    largerButton = Button(scalecontrols, text="Larger", command=(lambda: larger(w)))
+    largerButton = Button(scalecontrols, text="Larger", command=(lambda: larger(w, selected_object)))
     largerButton.pack(side=LEFT)
 
-    smallerButton = Button(scalecontrols, text="Smaller", command=(lambda: smaller(w)))
+    smallerButton = Button(scalecontrols, text="Smaller", command=(lambda: smaller(w, selected_object)))
     smallerButton.pack(side=LEFT)
 
     translatecontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
@@ -330,22 +336,22 @@ if __name__ == "__main__":
     translatecontrolslabel = Label(translatecontrols, text="Translation")
     translatecontrolslabel.pack()
 
-    forwardButton = Button(translatecontrols, text="FW", command=(lambda: forward(w)))
+    forwardButton = Button(translatecontrols, text="FW", command=(lambda: forward(w, selected_object)))
     forwardButton.pack(side=LEFT)
 
-    backwardButton = Button(translatecontrols, text="BK", command=(lambda: backward(w)))
+    backwardButton = Button(translatecontrols, text="BK", command=(lambda: backward(w, selected_object)))
     backwardButton.pack(side=LEFT)
 
-    leftButton = Button(translatecontrols, text="LF", command=(lambda: left(w)))
+    leftButton = Button(translatecontrols, text="LF", command=(lambda: left(w, selected_object)))
     leftButton.pack(side=LEFT)
 
-    rightButton = Button(translatecontrols, text="RT", command=(lambda: right(w)))
+    rightButton = Button(translatecontrols, text="RT", command=(lambda: right(w, selected_object)))
     rightButton.pack(side=LEFT)
 
-    upButton = Button(translatecontrols, text="UP", command=(lambda: up(w)))
+    upButton = Button(translatecontrols, text="UP", command=(lambda: up(w, selected_object)))
     upButton.pack(side=LEFT)
 
-    downButton = Button(translatecontrols, text="DN", command=(lambda: down(w)))
+    downButton = Button(translatecontrols, text="DN", command=(lambda: down(w, selected_object)))
     downButton.pack(side=LEFT)
 
     rotationcontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
@@ -354,22 +360,22 @@ if __name__ == "__main__":
     rotationcontrolslabel = Label(rotationcontrols, text="Rotation")
     rotationcontrolslabel.pack()
 
-    xPlusButton = Button(rotationcontrols, text="X+", command=(lambda: xPlus(w)))
+    xPlusButton = Button(rotationcontrols, text="X+", command=(lambda: xPlus(w, selected_object)))
     xPlusButton.pack(side=LEFT)
 
-    xMinusButton = Button(rotationcontrols, text="X-", command=(lambda: xMinus(w)))
+    xMinusButton = Button(rotationcontrols, text="X-", command=(lambda: xMinus(w, selected_object)))
     xMinusButton.pack(side=LEFT)
 
-    yPlusButton = Button(rotationcontrols, text="Y+", command=(lambda: yPlus(w)))
+    yPlusButton = Button(rotationcontrols, text="Y+", command=(lambda: yPlus(w, selected_object)))
     yPlusButton.pack(side=LEFT)
 
-    yMinusButton = Button(rotationcontrols, text="Y-", command=(lambda: yMinus(w)))
+    yMinusButton = Button(rotationcontrols, text="Y-", command=(lambda: yMinus(w, selected_object)))
     yMinusButton.pack(side=LEFT)
 
-    zPlusButton = Button(rotationcontrols, text="Z+", command=(lambda: zPlus(w)))
+    zPlusButton = Button(rotationcontrols, text="Z+", command=(lambda: zPlus(w, selected_object)))
     zPlusButton.pack(side=LEFT)
 
-    zMinusButton = Button(rotationcontrols, text="Z-", command=(lambda: zMinus(w)))
+    zMinusButton = Button(rotationcontrols, text="Z-", command=(lambda: zMinus(w, selected_object)))
     zMinusButton.pack(side=LEFT)    
 
     root.mainloop()
