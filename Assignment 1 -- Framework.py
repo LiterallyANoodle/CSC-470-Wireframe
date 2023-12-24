@@ -83,17 +83,25 @@ def rotateX(object, degrees):
     print("rotateX stub executed.")
 
 # The function will draw an object by repeatedly callying drawPoly on each polygon in the object
-def drawObject(object):
-    print("drawObject stub executed.")
+def drawObject(window, object: Object) -> None:
+    # draw poly does all the heavy lifting, so it's quite simple here
+    for poly in object.polygons:
+        drawPoly(window, poly, object)
 
 # This function will draw a polygon by repeatedly callying drawLine on each pair of points
 # making up the object.  Remember to draw a line between the last point and the first.
-def drawPoly(window, poly: Polygon) -> None:
+def drawPoly(window, poly: Polygon, object: Object) -> None:
 
     # create each pair of points to be drawn as a line 
     pairs = []
-    for i in range(len(poly.points)):
-        pass
+    for i in range(len(poly.points) - 1):
+        pairs.append([object.pointCloud[poly.points[i]], object.pointCloud[poly.points[i+1]]])
+    # get the last connection
+    pairs.append([object.pointCloud[poly.points[-1]], object.pointCloud[poly.points[0]]])
+
+    for pair in pairs:
+        points_proj_2d = project(pair, CAMERA_Z_OFFSET)
+        drawLine(window, points_proj_2d[0], points_proj_2d[1])
 
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
@@ -252,23 +260,44 @@ if __name__ == "__main__":
 
     # Definition of the five polygon faces using the meaningful point names
     # Polys are defined in clockwise order when viewed from the outside
-    frontpoly = [0, 1, 4]
-    rightpoly = [0, 2, 1]
-    backpoly = [0, 3, 2]
-    leftpoly = [0, 4, 3]
-    bottompoly = [1, 2, 3, 4]
+    frontpoly = Polygon([0, 1, 4])
+    rightpoly = Polygon([0, 2, 1])
+    backpoly = Polygon([0, 3, 2])
+    leftpoly = Polygon([0, 4, 3])
+    bottompoly = Polygon([1, 2, 3, 4])
 
     pyramidPolys = [frontpoly, rightpoly, backpoly, leftpoly, bottompoly]
 
-    # create the pyramid object from defined data
+    # create the tetrahedron object from defined data
     Pyramid1 = Object(pyramidPolys, pyramidPoints)
+
+    # ***************************** Initialize Tetrahedron Object ***************************
+    # Definition  of the five underlying points
+    tetra1_apex = [0,50,100]
+    tetra1_base_right = [50,-50,50]
+    tetra1_base_left = [-50,-50,50]
+    tetra1_base_back = [0,-30,150]
+
+    tetra1_points = [tetra1_apex, tetra1_base_right, tetra1_base_left, tetra1_base_back]
+
+    # Definition of the five polygon faces using the meaningful point names
+    # Polys are defined in clockwise order when viewed from the outside
+    tetra1_front_poly = Polygon([0, 1, 2])
+    tetra1_right_poly = Polygon([0, 3, 1])
+    tetra1_left_poly = Polygon([0, 2, 3])
+    tetra1_bottom_poly = Polygon([2, 1, 3])
+
+    tetra1_polys = [tetra1_front_poly, tetra1_right_poly, tetra1_left_poly, tetra1_bottom_poly]
+
+    # create the tetrahedron object from defined data
+    Tetrahedron1 = Object(tetra1_polys, tetra1_points)
 
     root = Tk()
     outerframe = Frame(root)
     outerframe.pack()
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
-    drawObject(Pyramid1)
+    drawObject(w, Tetrahedron1)
     w.pack()
 
     controlpanel = Frame(outerframe)
@@ -341,9 +370,6 @@ if __name__ == "__main__":
     zPlusButton.pack(side=LEFT)
 
     zMinusButton = Button(rotationcontrols, text="Z-", command=(lambda: zMinus(w)))
-    zMinusButton.pack(side=LEFT)
-
-    drawLine(w, (0, 0), (100, 100))
-    
+    zMinusButton.pack(side=LEFT)    
 
     root.mainloop()
