@@ -171,7 +171,35 @@ def areSimilarPoints(p1: Vector3, p2: Vector3) -> bool:
         if p1[i] != p2[2]:
             return False
     return True
-        
+
+# a bounding box is defined by a pair of points 
+# one point lies at the minimum of all dimensions of the object
+# the other point lies at the maximum of all dimensions of the object 
+# returns [maxVector3, minVector3]
+def findBoundingBox(object: Object) -> list[Vector3]:
+    max3 = (-9999, -9999, -9999) # start at "negative infinity"
+    min3 = (9999, 9999, 9999) # start at "positive infinity"
+    for point in object.pointCloud:
+        for dimension in range(len(point)):
+            # check max 
+            if point[dimension] > max3[dimension]:
+                max3[dimension] = point[dimension]
+            # check min
+            if point[dimension] < min3[dimension]:
+                min3[dimension] = point[dimension]
+
+    return [max3, min3]
+
+# find the center of an object by the bounding box 
+def findAnchorPoint(object: Object) -> Vector3:
+    bounding_box = findBoundingBox(object)
+    anchor_point = (0, 0, 0)
+    for dimension in range(len(anchor_point)):
+        max_dim = bounding_box[0][dimension]
+        min_dim = bounding_box[1][dimension]
+        anchor_point[dimension] = ((max_dim - min_dim) / 2) + min_dim
+
+    return anchor_point
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -280,7 +308,7 @@ if __name__ == "__main__":
     tetra1_apex = [0,50,100]
     tetra1_base_right = [50,-50,50]
     tetra1_base_left = [-50,-50,50]
-    tetra1_base_back = [0,-30,150]
+    tetra1_base_back = [0,-50,150]
 
     tetra1_points = [tetra1_apex, tetra1_base_right, tetra1_base_left, tetra1_base_back]
 
@@ -300,7 +328,7 @@ if __name__ == "__main__":
     outerframe = Frame(root)
     outerframe.pack()
 
-    selected_object = Pyramid1
+    selected_object = Tetrahedron1
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
     drawObject(w, selected_object)
