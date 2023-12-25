@@ -68,10 +68,8 @@ def resetObject(object):
 # vector so the amount of displacement in each dimension can vary.
 def translate(object: Object, displacement: Vector3) -> None:
     
-    # add the displacement over all points in all dimensions 
-    for point in object.pointCloud:
-        for dimension in range(len(point)):
-            point[dimension] = point[dimension] + displacement[dimension]
+    # add the displacement over the position in all dimensions 
+    object.position = [a + b for a, b in zip(object.position, displacement)]
     
 # This function performs a simple uniform scale of an object assuming the object is
 # centered at the origin.  The scalefactor is a scalar.
@@ -105,26 +103,30 @@ def rotateY(object, degrees):
 def rotateX(object, degrees):
     print("rotateX stub executed.")
 
-# The function will draw an object by repeatedly callying drawPoly on each polygon in the object
+# The function will draw an object by repeatedly callying drawLine on each line in each polygon in the object
+# I decided it's not worth having a separate drawpoly function. Needless cruft in how I have arranged the types. 
+# A poly is basically just an object with a single side anyway. 
 def drawObject(window, object: Object) -> None:
-    # draw poly does all the heavy lifting, so it's quite simple here
+
+    # translate according to position of the object
+    visual_points = []
+    for point in object.pointCloud:
+        vis_point = [0, 0, 0]
+        for dimension in range(len(point)):
+            vis_point[dimension] = point[dimension] + object.position[dimension]
+        visual_points.append(vis_point)
+
     for poly in object.polygons:
-        drawPoly(window, poly, object)
+        # create each pair of points to be drawn as a line a
+        pairs = []
+        for i in range(len(poly) - 1):
+            pairs.append([visual_points[poly[i]], visual_points[poly[i+1]]]) 
+        # get the last connection
+        pairs.append([visual_points[poly[-1]], visual_points[poly[0]]])
 
-# This function will draw a polygon by repeatedly callying drawLine on each pair of points
-# making up the object.  Remember to draw a line between the last point and the first.
-def drawPoly(window, poly: Polygon, object: Object) -> None:
-
-    # create each pair of points to be drawn as a line 
-    pairs = []
-    for i in range(len(poly.points) - 1):
-        pairs.append([object.pointCloud[poly[i]], object.pointCloud[poly[i+1]]])
-    # get the last connection
-    pairs.append([object.pointCloud[poly[-1]], object.pointCloud[poly[0]]])
-
-    for pair in pairs:
-        points_proj_2d = project(pair, CAMERA_Z_OFFSET)
-        drawLine(window, points_proj_2d[0], points_proj_2d[1])
+        for pair in pairs:
+            points_proj_2d = project(pair, CAMERA_Z_OFFSET)
+            drawLine(window, points_proj_2d[0], points_proj_2d[1])
 
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
@@ -350,6 +352,7 @@ if __name__ == "__main__":
     # create the tetrahedron object from defined data
     Tetrahedron1 = Object(tetra1_polys, tetra1_points)
 
+    # begin main instrucions 
     root = Tk()
     outerframe = Frame(root)
     outerframe.pack()
