@@ -68,36 +68,59 @@ def translate(object: Object, displacement: Vector3) -> None:
         for dimension in range(len(point)):
             point[dimension] = point[dimension] + displacement[dimension]
     
+    # also modify the anchor 
+    object.anchorPoint = [a + b for a, b in zip(object.anchorPoint, displacement)]
+    
 # This function performs a simple uniform scale of an object assuming the object is
-# centered at the origin.  The scalefactor is a scalar.
+# centered at the anchor point.  The scalefactor is a scalar.
 def scale(object: Object, scalefactor: int) -> None:
 
-    # translate to origin 
-    translate(object, negativeVector3(object.anchorPoint))
-    # scale 
+    # scale with anchor displacement 
     for point in object.pointCloud:
         for dimension in range(len(point)):
-            point[dimension] = point[dimension] * scalefactor
-    # return to original position
-    translate(object, object.anchorPoint)
+            point[dimension] = ((point[dimension] - object.anchorPoint[dimension]) * scalefactor) + object.anchorPoint[dimension]
 
 # This function performs a rotation of an object about the Z axis (from +X to +Y)
-# by 'degrees', assuming the object is centered at the origin.  The rotation is CCW
+# by 'degrees', assuming the object is centered at the anchor point.  The rotation is CCW
 # in a LHS when viewed from -Z [the location of the viewer in the standard postion]
-def rotateZ(object, degrees):
-    print("rotateZ stub executed.")
+def rotateZ(object: Object, degrees: float) -> None:
+
+    radians = degrees * (math.pi / 180)
+    
+    for point in object.pointCloud:
+        x = point[0] # have to record the original positions because the object will slowly shrink due to operations affecitng each other
+        y = point[1]
+        point[0] = ((x - object.anchorPoint[0]) * math.cos(radians) - (y - object.anchorPoint[1]) * math.sin(radians)) + object.anchorPoint[0] # X dimension 
+        point[1] = ((x - object.anchorPoint[0]) * math.sin(radians) + (y - object.anchorPoint[1]) * math.cos(radians)) + object.anchorPoint[1] # Y dimension
+        # Z is ignored 
     
 # This function performs a rotation of an object about the Y axis (from +Z to +X)
-# by 'degrees', assuming the object is centered at the origin.  The rotation is CW
+# by 'degrees', assuming the object is centered at the anchor point.  The rotation is CW
 # in a LHS when viewed from +Y looking toward the origin.
 def rotateY(object, degrees):
-    print("rotateY stub executed.")
+    
+    radians = degrees * (math.pi / 180)
+
+    for point in object.pointCloud:
+        x = point[0]
+        z = point[2]
+        point[0] = ((x - object.anchorPoint[0]) * math.cos(radians) + (z - object.anchorPoint[2]) * math.sin(radians)) + object.anchorPoint[0]
+        # Y is ignored 
+        point[2] = (-(x - object.anchorPoint[0]) * math.sin(radians) + (z - object.anchorPoint[2]) * math.cos(radians)) + object.anchorPoint[2]
 
 # This function performs a rotation of an object about the X axis (from +Y to +Z)
-# by 'degrees', assuming the object is centered at the origin.  The rotation is CW
+# by 'degrees', assuming the object is centered at the anchor point.  The rotation is CW
 # in a LHS when viewed from +X looking toward the origin.
 def rotateX(object, degrees):
-    print("rotateX stub executed.")
+    
+    radians = degrees * (math.pi / 180)
+
+    for point in object.pointCloud:
+        y = point[1]
+        z = point[2]
+        # X is ignored
+        point[1] = ((y - object.anchorPoint[1]) * math.cos(radians) - (z - object.anchorPoint[2]) * math.sin(radians)) + object.anchorPoint[1]
+        point[2] = ((y - object.anchorPoint[1]) * math.sin(radians) + (z - object.anchorPoint[2]) * math.cos(radians)) + object.anchorPoint[2]
 
 # The function will draw an object by repeatedly callying drawLine on each line in each polygon in the object
 # I decided it's not worth having a separate drawpoly function. Needless cruft in how I have arranged the types. 
@@ -197,7 +220,7 @@ def findBoundingBox(object: Object) -> list[Vector3]:
             if point[dimension] < min3[dimension]:
                 min3[dimension] = point[dimension]
 
-    return [tuple(max3), tuple(min3)]
+    return [max3, min3]
 
 # find the center of an object by the bounding box 
 def findAnchorPoint(object: Object) -> Vector3:
@@ -208,7 +231,7 @@ def findAnchorPoint(object: Object) -> Vector3:
         min_dim = bounding_box[1][dimension]
         anchor_point[dimension] = (max_dim + min_dim) / 2
 
-    return tuple(anchor_point)
+    return anchor_point
 
 # makes a vector negative in all dimensions
 def negativeVector3(point: Vector3) -> Vector3:
@@ -345,10 +368,12 @@ if __name__ == "__main__":
     outerframe = Frame(root)
     outerframe.pack()
 
-    selected_object = Tetrahedron1
+    object_group = [Tetrahedron1, Pyramid1]
+    selected_object = Pyramid1
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
-    drawObject(w, selected_object)
+    for obj in object_group:
+        drawObject(w, obj)
     w.pack()
 
     controlpanel = Frame(outerframe)
