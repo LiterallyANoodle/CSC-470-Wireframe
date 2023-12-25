@@ -22,23 +22,33 @@ CAMERA_Z_OFFSET = -500
 type Vector3 = list[float, float, float]
 type Vector2 = list[float, float]
 
-# Polygons Class 
-# The polygon class does not actually hold any points in it, but rather references to points in the dictionary that is the object's pointcloud
+# Polygons type hint
+# The polygon type does not actually hold any points in it, but rather references to points in the dictionary that is the object's pointcloud
 # This is done to more elegantly prevent point duplication in the pointCloud 
-class Polygon:
-    points: list[int] = []
-    def __init__(this, points):
-        this.points = points
+type Polygon = list[int]
 
 # Object Class 
 class Object:
+
     polygons: list[Polygon] = []
     pointCloud: list[Vector3] = []
     defaultPointCloud: list[Vector3] = []
-    def __init__(this, polygons, points):
+
+    anchorPoint: Vector3 = [0, 0, 0]
+    position: Vector3 = [0, 0, 0]
+
+    def __init__(this, polygons, points, position=None, anchorPoint=None):
         this.polygons = polygons
         this.pointCloud = points
         this.defaultPointCloud = copy.deepcopy(points)
+        
+        this.anchorPoint = anchorPoint
+        if anchorPoint == None:
+            findAnchorPoint(this)
+
+        this.position = position
+        if position == None:
+            this.position = [0, 0, 0]       
 
 
 #************************************************************************************
@@ -108,9 +118,9 @@ def drawPoly(window, poly: Polygon, object: Object) -> None:
     # create each pair of points to be drawn as a line 
     pairs = []
     for i in range(len(poly.points) - 1):
-        pairs.append([object.pointCloud[poly.points[i]], object.pointCloud[poly.points[i+1]]])
+        pairs.append([object.pointCloud[poly[i]], object.pointCloud[poly[i+1]]])
     # get the last connection
-    pairs.append([object.pointCloud[poly.points[-1]], object.pointCloud[poly.points[0]]])
+    pairs.append([object.pointCloud[poly[-1]], object.pointCloud[poly[0]]])
 
     for pair in pairs:
         points_proj_2d = project(pair, CAMERA_Z_OFFSET)
@@ -206,7 +216,7 @@ def findAnchorPoint(object: Object) -> Vector3:
     for dimension in range(len(anchor_point)):
         max_dim = bounding_box[0][dimension]
         min_dim = bounding_box[1][dimension]
-        anchor_point[dimension] = ((max_dim - min_dim) / 2) + min_dim
+        anchor_point[dimension] = (max_dim + min_dim) / 2
 
     return tuple(anchor_point)
 
@@ -266,32 +276,32 @@ def down(window, object):
 
 def xPlus(window, object):
     window.delete(ALL)
-    rotateX(object.pointCloud, 5)
+    rotateX(object, 5)
     drawObject(window, object)
 
 def xMinus(window, object):
     window.delete(ALL)
-    rotateX(object.pointCloud, -5)
+    rotateX(object, -5)
     drawObject(window, object)
 
 def yPlus(window, object):
     window.delete(ALL)
-    rotateY(object.pointCloud, 5)
+    rotateY(object, 5)
     drawObject(window, object)
 
 def yMinus(window, object):
     window.delete(ALL)
-    rotateY(object.pointCloud, -5)
+    rotateY(object, -5)
     drawObject(window, object)
 
 def zPlus(window, object):
     window.delete(ALL)
-    rotateZ(object.pointCloud, 5)
+    rotateZ(object, 5)
     drawObject(window, object)
 
 def zMinus(window, object):
     window.delete(ALL)
-    rotateZ(object.pointCloud, -5)
+    rotateZ(object, -5)
     drawObject(window, object)
 
 if __name__ == "__main__":
@@ -308,11 +318,11 @@ if __name__ == "__main__":
 
     # Definition of the five polygon faces using the meaningful point names
     # Polys are defined in clockwise order when viewed from the outside
-    frontpoly = Polygon([0, 1, 4])
-    rightpoly = Polygon([0, 2, 1])
-    backpoly = Polygon([0, 3, 2])
-    leftpoly = Polygon([0, 4, 3])
-    bottompoly = Polygon([1, 2, 3, 4])
+    frontpoly = [0, 1, 4]
+    rightpoly = [0, 2, 1]
+    backpoly = [0, 3, 2]
+    leftpoly = [0, 4, 3]
+    bottompoly = [1, 2, 3, 4]
 
     pyramidPolys = [frontpoly, rightpoly, backpoly, leftpoly, bottompoly]
 
@@ -330,10 +340,10 @@ if __name__ == "__main__":
 
     # Definition of the five polygon faces using the meaningful point names
     # Polys are defined in clockwise order when viewed from the outside
-    tetra1_front_poly = Polygon([0, 1, 2])
-    tetra1_right_poly = Polygon([0, 3, 1])
-    tetra1_left_poly = Polygon([0, 2, 3])
-    tetra1_bottom_poly = Polygon([2, 1, 3])
+    tetra1_front_poly = [0, 1, 2]
+    tetra1_right_poly = [0, 3, 1]
+    tetra1_left_poly = [0, 2, 3]
+    tetra1_bottom_poly = [2, 1, 3]
 
     tetra1_polys = [tetra1_front_poly, tetra1_right_poly, tetra1_left_poly, tetra1_bottom_poly]
 
