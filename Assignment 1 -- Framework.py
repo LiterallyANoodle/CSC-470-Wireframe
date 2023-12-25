@@ -35,20 +35,15 @@ class Object:
     defaultPointCloud: list[Vector3] = []
 
     anchorPoint: Vector3 = [0, 0, 0]
-    position: Vector3 = [0, 0, 0]
 
-    def __init__(this, polygons, points, position=None, anchorPoint=None):
+    def __init__(this, polygons, points, anchorPoint=None):
         this.polygons = polygons
         this.pointCloud = points
         this.defaultPointCloud = copy.deepcopy(points)
         
         this.anchorPoint = anchorPoint
         if anchorPoint == None:
-            findAnchorPoint(this)
-
-        this.position = position
-        if position == None:
-            this.position = [0, 0, 0]       
+            this.anchorPoint = findAnchorPoint(this)
 
 
 #************************************************************************************
@@ -69,21 +64,22 @@ def resetObject(object):
 def translate(object: Object, displacement: Vector3) -> None:
     
     # add the displacement over the position in all dimensions 
-    object.position = [a + b for a, b in zip(object.position, displacement)]
+    for point in object.pointCloud:
+        for dimension in range(len(point)):
+            point[dimension] = point[dimension] + displacement[dimension]
     
 # This function performs a simple uniform scale of an object assuming the object is
 # centered at the origin.  The scalefactor is a scalar.
 def scale(object: Object, scalefactor: int) -> None:
-    # find anchor point 
-    anchor_point = findAnchorPoint(object)
+
     # translate to origin 
-    translate(object, negativeVector3(anchor_point))
+    translate(object, negativeVector3(object.anchorPoint))
     # scale 
     for point in object.pointCloud:
         for dimension in range(len(point)):
             point[dimension] = point[dimension] * scalefactor
     # return to original position
-    translate(object, anchor_point)
+    translate(object, object.anchorPoint)
 
 # This function performs a rotation of an object about the Z axis (from +X to +Y)
 # by 'degrees', assuming the object is centered at the origin.  The rotation is CCW
@@ -108,21 +104,13 @@ def rotateX(object, degrees):
 # A poly is basically just an object with a single side anyway. 
 def drawObject(window, object: Object) -> None:
 
-    # translate according to position of the object
-    visual_points = []
-    for point in object.pointCloud:
-        vis_point = [0, 0, 0]
-        for dimension in range(len(point)):
-            vis_point[dimension] = point[dimension] + object.position[dimension]
-        visual_points.append(vis_point)
-
     for poly in object.polygons:
         # create each pair of points to be drawn as a line a
         pairs = []
         for i in range(len(poly) - 1):
-            pairs.append([visual_points[poly[i]], visual_points[poly[i+1]]]) 
+            pairs.append([object.pointCloud[poly[i]], object.pointCloud[poly[i+1]]]) 
         # get the last connection
-        pairs.append([visual_points[poly[-1]], visual_points[poly[0]]])
+        pairs.append([object.pointCloud[poly[-1]], object.pointCloud[poly[0]]])
 
         for pair in pairs:
             points_proj_2d = project(pair, CAMERA_Z_OFFSET)
