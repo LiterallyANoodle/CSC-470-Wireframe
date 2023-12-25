@@ -19,8 +19,8 @@ CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = -500
 
 # point type hint 
-type Vector3 = tuple[float, float, float]
-type Vector2 = tuple[float, float]
+type Vector3 = list[float, float, float]
+type Vector2 = list[float, float]
 
 # Polygons Class 
 # The polygon class does not actually hold any points in it, but rather references to points in the dictionary that is the object's pointcloud
@@ -65,8 +65,17 @@ def translate(object: Object, displacement: Vector3) -> None:
     
 # This function performs a simple uniform scale of an object assuming the object is
 # centered at the origin.  The scalefactor is a scalar.
-def scale(object, scalefactor):
-    print("scale stub executed.")
+def scale(object: Object, scalefactor: int) -> None:
+    # find anchor point 
+    anchor_point = findAnchorPoint(object)
+    # translate to origin 
+    translate(object, negativeVector3(anchor_point))
+    # scale 
+    for point in object.pointCloud:
+        for dimension in range(len(point)):
+            point[dimension] = point[dimension] * scalefactor
+    # return to original position
+    translate(object, anchor_point)
 
 # This function performs a rotation of an object about the Z axis (from +X to +Y)
 # by 'degrees', assuming the object is centered at the origin.  The rotation is CCW
@@ -177,8 +186,8 @@ def areSimilarPoints(p1: Vector3, p2: Vector3) -> bool:
 # the other point lies at the maximum of all dimensions of the object 
 # returns [maxVector3, minVector3]
 def findBoundingBox(object: Object) -> list[Vector3]:
-    max3 = (-9999, -9999, -9999) # start at "negative infinity"
-    min3 = (9999, 9999, 9999) # start at "positive infinity"
+    max3 = [-9999, -9999, -9999] # start at "negative infinity"
+    min3 = [9999, 9999, 9999] # start at "positive infinity"
     for point in object.pointCloud:
         for dimension in range(len(point)):
             # check max 
@@ -188,18 +197,25 @@ def findBoundingBox(object: Object) -> list[Vector3]:
             if point[dimension] < min3[dimension]:
                 min3[dimension] = point[dimension]
 
-    return [max3, min3]
+    return [tuple(max3), tuple(min3)]
 
 # find the center of an object by the bounding box 
 def findAnchorPoint(object: Object) -> Vector3:
     bounding_box = findBoundingBox(object)
-    anchor_point = (0, 0, 0)
+    anchor_point = [0, 0, 0]
     for dimension in range(len(anchor_point)):
         max_dim = bounding_box[0][dimension]
         min_dim = bounding_box[1][dimension]
         anchor_point[dimension] = ((max_dim - min_dim) / 2) + min_dim
 
-    return anchor_point
+    return tuple(anchor_point)
+
+# makes a vector negative in all dimensions
+def negativeVector3(point: Vector3) -> Vector3:
+    inverted = [0, 0, 0]
+    for dimension in range(len(point)):
+        inverted[dimension] = -point[dimension]
+    return inverted
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -210,42 +226,42 @@ def reset(window, object):
 
 def larger(window, object):
     window.delete(ALL)
-    scale(object.pointCloud, 1.1)
+    scale(object, 1.1)
     drawObject(window, object)
 
 def smaller(window, object):
     window.delete(ALL)
-    scale(object.pointCloud, .9)
+    scale(object, .9)
     drawObject(window, object)
 
 def forward(window, object):
     window.delete(ALL)
-    translate(object, (0,0,5))
+    translate(object, [0,0,5])
     drawObject(window, object)
 
 def backward(window, object):
     window.delete(ALL)
-    translate(object, (0,0,-5))
+    translate(object, [0,0,-5])
     drawObject(window, object)
 
 def left(window, object):
     window.delete(ALL)
-    translate(object, (-5,0,0))
+    translate(object, [-5,0,0])
     drawObject(window, object)
 
 def right(window, object):
     window.delete(ALL)
-    translate(object, (5,0,0))
+    translate(object, [5,0,0])
     drawObject(window, object)
 
 def up(window, object):
     window.delete(ALL)
-    translate(object, (0,5,0))
+    translate(object, [0,5,0])
     drawObject(window, object)
 
 def down(window, object):
     window.delete(ALL)
-    translate(object, (0,-5,0))
+    translate(object, [0,-5,0])
     drawObject(window, object)
 
 def xPlus(window, object):
