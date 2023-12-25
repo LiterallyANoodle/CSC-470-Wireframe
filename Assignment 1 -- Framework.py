@@ -247,77 +247,92 @@ def negativeVector3(point: Vector3) -> Vector3:
 def reset(window, object):
     window.delete(ALL)
     resetObject(object)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def larger(window, object):
     window.delete(ALL)
     scale(object, 1.1)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def smaller(window, object):
     window.delete(ALL)
     scale(object, .9)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def forward(window, object):
     window.delete(ALL)
     translate(object, [0,0,5])
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def backward(window, object):
     window.delete(ALL)
     translate(object, [0,0,-5])
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def left(window, object):
     window.delete(ALL)
     translate(object, [-5,0,0])
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def right(window, object):
     window.delete(ALL)
     translate(object, [5,0,0])
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def up(window, object):
     window.delete(ALL)
     translate(object, [0,5,0])
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def down(window, object):
     window.delete(ALL)
     translate(object, [0,-5,0])
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def xPlus(window, object):
     window.delete(ALL)
     rotateX(object, 5)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def xMinus(window, object):
     window.delete(ALL)
     rotateX(object, -5)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def yPlus(window, object):
     window.delete(ALL)
     rotateY(object, 5)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def yMinus(window, object):
     window.delete(ALL)
     rotateY(object, -5)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def zPlus(window, object):
     window.delete(ALL)
     rotateZ(object, 5)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 def zMinus(window, object):
     window.delete(ALL)
     rotateZ(object, -5)
-    drawObject(window, object)
+    for obj in object_group:
+        drawObject(window, obj)
 
 if __name__ == "__main__":
 
