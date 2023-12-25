@@ -57,6 +57,8 @@ def resetObject(object):
     for i in range(len(object.pointCloud)):
         for j in range(3):
             object.pointCloud[i][j] = object.defaultPointCloud[i][j]
+    # also reset anchorPoint
+    object.anchorPoint = findAnchorPoint(object)
 
 
 # This function translates an object by some displacement.  The displacement is a 3D
