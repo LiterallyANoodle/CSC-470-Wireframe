@@ -64,7 +64,7 @@ def resetObject(object: Object) -> None:
 
 # setup object 
 # this function just sets the default position and resets the object
-def setupObject(object: Object, position: Vector3):
+def setupObject(object: Object, position: Vector3) -> None:
     setDefaultPosition(object, position)
     resetObject(object)
 
@@ -268,7 +268,7 @@ def setDefaultPosition(object: Object, position: Vector3) -> None:
     object.pointCloud = currentPointCloud
     object.anchorPoint = currentAnchorPoint
 
-def selectObject(index=0):
+def selectObject(index=0) -> None:
     global selected_object
     global object_group
 
