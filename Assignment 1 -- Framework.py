@@ -53,13 +53,19 @@ class Object:
 # structure rather than creating a new structure or just switching a pointer.  In other
 # words, you'll need manually update the value of every x, y, and z of every point in
 # point cloud (vertex list).
-def resetObject(object):
+def resetObject(object: Object) -> None:
     for i in range(len(object.pointCloud)):
         for j in range(3):
             object.pointCloud[i][j] = object.defaultPointCloud[i][j]
     # also reset anchorPoint
     object.anchorPoint = findAnchorPoint(object)
 
+
+# setup object 
+# this function just sets the default position and resets the object
+def setupObject(object: Object, position: Vector3):
+    setDefaultPosition(object, position)
+    resetObject(object)
 
 # This function translates an object by some displacement.  The displacement is a 3D
 # vector so the amount of displacement in each dimension can vary.
@@ -99,7 +105,7 @@ def rotateZ(object: Object, degrees: float) -> None:
 # This function performs a rotation of an object about the Y axis (from +Z to +X)
 # by 'degrees', assuming the object is centered at the anchor point.  The rotation is CW
 # in a LHS when viewed from +Y looking toward the origin.
-def rotateY(object, degrees):
+def rotateY(object: Object, degrees: float) -> None:
     
     radians = degrees * (math.pi / 180)
 
@@ -113,7 +119,7 @@ def rotateY(object, degrees):
 # This function performs a rotation of an object about the X axis (from +Y to +Z)
 # by 'degrees', assuming the object is centered at the anchor point.  The rotation is CW
 # in a LHS when viewed from +X looking toward the origin.
-def rotateX(object, degrees):
+def rotateX(object: Object, degrees: float) -> None:
     
     radians = degrees * (math.pi / 180)
 
@@ -242,11 +248,37 @@ def negativeVector3(point: Vector3) -> Vector3:
         inverted[dimension] = -point[dimension]
     return inverted
 
+# sets the default position to the new location 
+def setDefaultPosition(object: Object, position: Vector3) -> None:
+
+    # get a copy of the current state so that we don't change the actual current position and orientation
+    currentPointCloud = copy.deepcopy(object.pointCloud)
+    currentAnchorPoint = copy.deepcopy(object.anchorPoint)
+
+    # resetObject(object) # return object to original size/orientation so current modifications don't mess with new position
+    translate(object, negativeVector3(object.anchorPoint)) # return to origin so current default position doesn't affect the new one
+    translate(object, position) # go to the new default position 
+    # set defaults 
+    for i in range(len(object.defaultPointCloud)):
+        for j in range(len(object.defaultPointCloud[i])):
+            object.defaultPointCloud[i][j] = object.pointCloud[i][j]
+
+    # return to how it was 
+    object.pointCloud = currentPointCloud
+    object.anchorPoint = currentAnchorPoint
+
 # **************************************************************************
 # Everything below this point implements the interface
 def reset(window, object):
     window.delete(ALL)
-    resetObject(object)
+    for obj in object_group:
+        resetObject(obj)
+    for obj in object_group:
+        drawObject(window, obj)
+
+def setPosition(window, object):
+    window.delete(ALL)
+    setDefaultPosition(object, object.anchorPoint)
     for obj in object_group:
         drawObject(window, obj)
 
@@ -359,6 +391,9 @@ if __name__ == "__main__":
     # create the tetrahedron object from defined data
     Pyramid1 = Object(pyramidPolys, pyramidPoints)
 
+    # give a default position away from the origin 
+    setupObject(Pyramid1, [0, 0, 0])
+
     # ***************************** Initialize Tetrahedron Object ***************************
     # Definition  of the five underlying points
     tetra1_apex = [0,50,100]
@@ -380,13 +415,78 @@ if __name__ == "__main__":
     # create the tetrahedron object from defined data
     Tetrahedron1 = Object(tetra1_polys, tetra1_points)
 
-    # begin main instrucions 
+    # give a default position away from the origin 
+    setupObject(Tetrahedron1, [80, -80, 10])
+
+    # ***************************** Initialize Cube1 Object ***************************
+    # Definition  of the five underlying points
+    cube1_front_bottom_left = [-20, -20, -20]
+    cube1_front_bottom_right = [20, -20, -20]
+    cube1_front_top_left = [-20, 20, -20]
+    cube1_front_top_right = [20, 20, -20]
+    cube1_back_bottom_left = [-20, -20, 20]
+    cube1_back_bottom_right = [20, -20, 20]
+    cube1_back_top_left = [-20, 20, 20]
+    cube1_back_top_right = [20, 20, 20]
+
+    cube1_points = [cube1_front_bottom_left, cube1_front_bottom_right, cube1_front_top_left, cube1_front_top_right, \
+                    cube1_back_bottom_left, cube1_back_bottom_right, cube1_back_top_left, cube1_back_top_right]
+
+    # Definition of the five polygon faces using the meaningful point names
+    # Polys are defined in clockwise order when viewed from the outside
+    cube1_front_poly = [0, 2, 3, 1]
+    cube1_right_poly = [1, 3, 7, 5]
+    cube1_back_poly = [5, 7, 6, 4]
+    cube1_left_poly = [4, 6, 2, 0]
+    cube1_top_poly = [2, 6, 7, 3]
+    cube1_bottom_poly = [4, 0, 1, 5]
+
+    cube1_polys = [cube1_front_poly, cube1_right_poly, cube1_back_poly, cube1_left_poly, cube1_top_poly, cube1_bottom_poly]
+
+    # create the tetrahedron object from defined data
+    Cube1 = Object(cube1_polys, cube1_points)
+
+    # give a default position away from the origin 
+    setupObject(Cube1, [60, 60, 50])
+
+    # ***************************** Initialize Cube2 Object ***************************
+    # Definition  of the five underlying points
+    cube2_front_bottom_left = [-20, -20, -20]
+    cube2_front_bottom_right = [20, -20, -20]
+    cube2_front_top_left = [-20, 20, -20]
+    cube2_front_top_right = [20, 20, -20]
+    cube2_back_bottom_left = [-20, -20, 20]
+    cube2_back_bottom_right = [20, -20, 20]
+    cube2_back_top_left = [-20, 20, 20]
+    cube2_back_top_right = [20, 20, 20]
+
+    cube2_points = [cube2_front_bottom_left, cube2_front_bottom_right, cube2_front_top_left, cube2_front_top_right, \
+                    cube2_back_bottom_left, cube2_back_bottom_right, cube2_back_top_left, cube2_back_top_right]
+
+    # Definition of the five polygon faces using the meaningful point names
+    # Polys are defined in clockwise order when viewed from the outside
+    cube2_front_poly = [0, 2, 3, 1]
+    cube2_right_poly = [1, 3, 7, 5]
+    cube2_back_poly = [5, 7, 6, 4]
+    cube2_left_poly = [4, 6, 2, 0]
+    cube2_top_poly = [2, 6, 7, 3]
+    cube2_bottom_poly = [4, 0, 1, 5]
+
+    cube2_polys = [cube2_front_poly, cube2_right_poly, cube2_back_poly, cube2_left_poly, cube2_top_poly, cube2_bottom_poly]
+
+    # create the tetrahedron object from defined data
+    Cube2 = Object(cube2_polys, cube2_points)
+
+    # give a default position away from the origin 
+    setupObject(Cube2, [-60, 60, 50])
+
+    # ***************************** begin main instrucions *****************************
     root = Tk()
     outerframe = Frame(root)
     outerframe.pack()
 
-    object_group = [Tetrahedron1, Pyramid1]
-    selected_object = Pyramid1
+    object_group = [Tetrahedron1, Pyramid1, Cube1, Cube2]
+    selected_object = Cube1
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
     for obj in object_group:
@@ -404,6 +504,9 @@ if __name__ == "__main__":
 
     resetButton = Button(resetcontrols, text="Reset", fg="green", command=(lambda: reset(w, selected_object)))
     resetButton.pack(side=LEFT)
+
+    setPositionButton = Button(resetcontrols, text="Set Default Position", command=(lambda: setPosition(w, selected_object)))
+    setPositionButton.pack(side=LEFT)
 
     scalecontrols = Frame(controlpanel, borderwidth=2, relief=RIDGE)
     scalecontrols.pack(side=LEFT)
