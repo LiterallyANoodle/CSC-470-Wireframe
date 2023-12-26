@@ -35,6 +35,7 @@ class Object:
     defaultPointCloud: list[Vector3] = []
 
     anchorPoint: Vector3 = [0, 0, 0]
+    color: str = "black"
 
     def __init__(this, polygons, points, anchorPoint=None):
         this.polygons = polygons
@@ -145,17 +146,17 @@ def drawObject(window, object: Object) -> None:
 
         for pair in pairs:
             points_proj_2d = project(pair, CAMERA_Z_OFFSET)
-            drawLine(window, points_proj_2d[0], points_proj_2d[1])
+            drawLine(window, points_proj_2d[0], points_proj_2d[1], object.color)
 
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
 # draw the actual line using the built-in create_line method
-def drawLine(window, start: Vector2, end: Vector2) -> None:
+def drawLine(window, start: Vector2, end: Vector2, color="black") -> None:
     
     start_proj, end_proj = projectToDisplayCoordinates([start, end], window.winfo_reqwidth(), window.winfo_reqheight())
 
-    window.create_line(start_proj[0], start_proj[1], end_proj[0], end_proj[1])
+    window.create_line(start_proj[0], start_proj[1], end_proj[0], end_proj[1], fill=color)
 
 # This function converts from 3D to 2D (+ depth) using the perspective projection technique.  Note that it
 # will return a NEW list of points.  We will not want to keep around the projected points in our object as
@@ -266,6 +267,34 @@ def setDefaultPosition(object: Object, position: Vector3) -> None:
     # return to how it was 
     object.pointCloud = currentPointCloud
     object.anchorPoint = currentAnchorPoint
+
+def selectObject(index=0):
+    global selected_object
+    global object_group
+
+    if selected_object == None:
+        selected_object = object_group[0]
+
+    selected_object.color = "black"
+    selected_object = object_group[index]
+    selected_object.color = "red"
+
+def drawAllObjects() -> None:
+    global object_group
+    for obj in object_group:
+        drawObject(w, obj)
+
+def leftPressed(event) -> None:
+    global selected_object
+    global object_group
+    selectObject((object_group.index(selected_object) - 1) % len(object_group))
+    drawAllObjects()
+
+def rightPressed(event) -> None:
+    global selected_object
+    global object_group
+    selectObject((object_group.index(selected_object) + 1) % len(object_group))
+    drawAllObjects()
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -486,12 +515,16 @@ if __name__ == "__main__":
     outerframe.pack()
 
     object_group = [Tetrahedron1, Pyramid1, Cube1, Cube2]
-    selected_object = Cube1
+    selected_object = None
+    selectObject() # by default selects the 0th object to start
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
-    for obj in object_group:
-        drawObject(w, obj)
+    drawAllObjects()
     w.pack()
+
+    # keyboard input 
+    root.bind("<Left>", leftPressed)
+    root.bind("<Right>", rightPressed)
 
     controlpanel = Frame(outerframe)
     controlpanel.pack()
