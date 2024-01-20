@@ -19,13 +19,13 @@ CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = -500
 
 # point type hint 
-type Vector3 = list[float, float, float]
-type Vector2 = list[float, float]
+Vector3 = list[float, float, float]
+Vector2 = list[float, float]
 
 # Polygons type hint
 # The polygon type does not actually hold any points in it, but rather references to points in the dictionary that is the object's pointcloud
 # This is done to more elegantly prevent point duplication in the pointCloud 
-type Polygon = list[int]
+Polygon = list[int]
 
 # Object Class 
 class Object:
