@@ -16,7 +16,7 @@ from tkinter import *
 # Constants 
 CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
-CAMERA_Z_OFFSET = -500
+CAMERA_Z_OFFSET = 500
 
 # point type hint 
 Vector3 = list[float, float, float]
