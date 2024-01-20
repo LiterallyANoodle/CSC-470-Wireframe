@@ -48,6 +48,7 @@ class Object:
 
 
 # Quick and dirty Matrices 
+# For sake of convenience, these will ONLY be instantiated when a proper operation is needed 
 class Matrix: 
 
     width: int = None
@@ -101,6 +102,7 @@ class Matrix:
         return product
 
 # Matrix with height 1
+# For sake of convenience, these will ONLY be instantiated when a special operation is needed 
 class RowVector(Matrix):
 
     # init from a list (vector)
@@ -260,6 +262,11 @@ def rotateX(object: Object, degrees: float) -> None:
 def drawObject(window, object: Object) -> None:
 
     for poly in object.polygons:
+
+        # check visibility (backface culling)
+        if not polyIsVisible(object, poly):
+            continue 
+
         # create each pair of points to be drawn as a line a
         pairs = []
         for i in range(len(poly) - 1):
@@ -420,8 +427,26 @@ def rightPressed(event) -> None:
     drawAllObjects()
 
 # backface culling 
-def isVisible(poly: Polygon) -> bool:
-    pass 
+def polyIsVisible(object: Object, poly: Polygon) -> bool:
+    
+    # make proper vectors of edges p0 -> p1 and p1 -> p2 
+    p0 = object.pointCloud[poly[0]]
+    p1 = object.pointCloud[poly[1]]
+    p2 = object.pointCloud[poly[2]]
+
+    P = RowVector([a - b for a,b in zip(p1, p0)])
+    Q = RowVector([a - b for a,b in zip(p2, p1)])
+
+    # take the cross product of these vectors and normalize 
+    N = P.cross(Q).normalize()
+
+    # now take the dot of N against a point in the plane 
+    D = N.dot(RowVector(p0))
+
+    # find the difference for visibility 
+    vis = N.dot(RowVector([0, 0, -CAMERA_Z_OFFSET])) - D
+
+    return (vis > 0)
 
 # **************************************************************************
 # Everything below this point implements the interface
