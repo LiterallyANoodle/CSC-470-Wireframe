@@ -47,6 +47,126 @@ class Object:
             this.anchorPoint = findAnchorPoint(this)
 
 
+# Quick and dirty Matrices 
+class Matrix: 
+
+    width: int = None
+    height: int = None 
+    elements: list[float] = []
+
+    # All matrices intialize to 0
+    def __init__(this, width, height):
+        this.width = width
+        this.height = height
+        for e in range(width * height):
+            this.elements.append(0)
+
+    # get/set element at position i,j 
+    # for simplicity, i will indicate how far from the left and j will indicate how far from the top 
+    # real math does it the other way, but idc this is more convenient 
+    def getElement(this, i: int, j: int) -> float:
+        return this.elements[this.width * j + i]
+    
+    def setElement(this, i: int, j: int, element: float) -> None:
+        this.elements[this.width * j + i] = element
+
+    # useful for multiplication 
+    def getColumnAsRowVector(this, i: int) -> RowVector:
+        elements = []
+        for j in range(this.height):
+            elements.append(this.getElement(i, j))
+        return RowVector(elements)
+    
+    def getRowAsRowVector(this, j: int) -> RowVector:
+        elements = []
+        for i in range(this.width):
+            elements.append(this.getElement(i, j))
+        return RowVector(elements)
+
+    # matrix math 
+        
+    # matrix multiplication
+    def multiply(left, right) -> Matrix:
+        
+        # the width of Left must equal the height of Right 
+        # the resultant matrix will have the height of Left and the width of Right 
+        product = Matrix(right.width, left.height)
+
+        for i in range(product.width):
+            for j in range(product.height):
+                # effectively a dot of the row of Left and the column of Right 
+                product.setElement(i, j, left.getRowAsRowVector(j).dot(right.getColumnAsRowVector(i)))
+
+        return product
+
+# Matrix with height 1
+class RowVector(Matrix):
+
+    # init from a list (vector)
+    def __init__(this, elements):
+        super().__init__(len(elements), 1)
+        this.height = 1
+        this.width = len(elements)
+        this.elements = elements
+
+    # vector math 
+    
+    # dot product 
+    def dot(this, other: RowVector) -> float:
+
+        if this.width != other.width:
+            print("Can't dot product different length vectors.")
+            return
+
+        product = 0
+
+        for i in range(product.width):
+            product += product.getElement(i, 0) * other.getElement(i, 0)
+
+        return product
+    
+    # cross product 
+    def cross(this, other: RowVector) -> RowVector:
+
+        if (this.width != 3) or (other.width != 3):
+            print("Can't cross product vectors of length not 3")
+            return
+
+        x = (this.getElement(1, 0) * other.getElement(2, 0)) - (this.getElement(2, 0) * other.getElement(1, 0))
+        y = (this.getElement(2, 0) * other.getElement(0, 0)) - (this.getElement(0, 0) * other.getElement(2, 0))
+        z = (this.getElement(0, 0) * other.getElement(1, 0)) - (this.getElement(1, 0) * other.getElement(0, 0))
+
+        return RowVector([x, y, z])
+    
+    # get magnitude 
+    def magnitude(this) -> float:
+        
+        sum = 0
+        for i in range(this.width):
+            sum += this.getElement(i, 0) ** 2
+
+        return sum ** .5 # sqrt
+    
+    # get normalized vector 
+    def normalize(this) -> RowVector:
+
+        elements = []
+
+        magnitude = this.magnitude()
+        for i in range(this.width):
+            elements.append(this.getElement(i, 0) / magnitude)
+
+        return RowVector(elements)
+
+    # make homogenous 
+    def homogenize(this) -> RowVector:
+        elements = copy.deepcopy(this.elements).append(1.0)
+        return RowVector(elements)
+    
+    # make not homogenous (for operations)
+    def dehomogenize(this) -> RowVector:
+        elements = copy.deepcopy(this.elements)[:-1] # use slicing to get everything except last element 
+
 #************************************************************************************
 
 # This function resets the pyramid to its original size and location in 3D space
@@ -295,6 +415,10 @@ def rightPressed(event) -> None:
     global object_group
     selectObject((object_group.index(selected_object) + 1) % len(object_group))
     drawAllObjects()
+
+# backface culling 
+def isVisible(poly: Polygon) -> bool:
+    pass 
 
 # **************************************************************************
 # Everything below this point implements the interface
