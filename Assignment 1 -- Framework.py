@@ -52,12 +52,13 @@ class Matrix:
 
     width: int = None
     height: int = None 
-    elements: list[float] = []
+    elements: list[float] = None
 
     # All matrices intialize to 0
     def __init__(this, width, height):
         this.width = width
         this.height = height
+        this.elements = []
         for e in range(width * height):
             this.elements.append(0)
 
@@ -71,13 +72,13 @@ class Matrix:
         this.elements[this.width * j + i] = element
 
     # useful for multiplication 
-    def getColumnAsRowVector(this, i: int) -> RowVector:
+    def getColumnAsRowVector(this, i: int):
         elements = []
         for j in range(this.height):
             elements.append(this.getElement(i, j))
         return RowVector(elements)
     
-    def getRowAsRowVector(this, j: int) -> RowVector:
+    def getRowAsRowVector(this, j: int):
         elements = []
         for i in range(this.width):
             elements.append(this.getElement(i, j))
@@ -86,7 +87,7 @@ class Matrix:
     # matrix math 
         
     # matrix multiplication
-    def multiply(left, right) -> Matrix:
+    def multiply(left, right):
         
         # the width of Left must equal the height of Right 
         # the resultant matrix will have the height of Left and the width of Right 
@@ -112,7 +113,7 @@ class RowVector(Matrix):
     # vector math 
     
     # dot product 
-    def dot(this, other: RowVector) -> float:
+    def dot(this, other) -> float:
 
         if this.width != other.width:
             print("Can't dot product different length vectors.")
@@ -120,13 +121,13 @@ class RowVector(Matrix):
 
         product = 0
 
-        for i in range(product.width):
-            product += product.getElement(i, 0) * other.getElement(i, 0)
+        for i in range(this.width):
+            product += this.getElement(i, 0) * other.getElement(i, 0)
 
         return product
     
     # cross product 
-    def cross(this, other: RowVector) -> RowVector:
+    def cross(this, other):
 
         if (this.width != 3) or (other.width != 3):
             print("Can't cross product vectors of length not 3")
@@ -148,7 +149,7 @@ class RowVector(Matrix):
         return sum ** .5 # sqrt
     
     # get normalized vector 
-    def normalize(this) -> RowVector:
+    def normalize(this):
 
         elements = []
 
@@ -159,13 +160,15 @@ class RowVector(Matrix):
         return RowVector(elements)
 
     # make homogenous 
-    def homogenize(this) -> RowVector:
-        elements = copy.deepcopy(this.elements).append(1.0)
+    def homogenize(this):
+        elements = copy.deepcopy(this.elements)
+        elements.append(1.0)
         return RowVector(elements)
     
     # make not homogenous (for operations)
-    def dehomogenize(this) -> RowVector:
+    def dehomogenize(this):
         elements = copy.deepcopy(this.elements)[:-1] # use slicing to get everything except last element 
+        return RowVector(elements)
 
 #************************************************************************************
 
