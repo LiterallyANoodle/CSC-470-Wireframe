@@ -280,24 +280,29 @@ def drawObject(window, object: Object) -> None:
         if not polyIsVisible(object, poly):
             continue 
 
-        # create each pair of points to be drawn as a line a
-        pairs = []
-        for i in range(len(poly) - 1):
-            pairs.append([object.pointCloud[poly[i]], object.pointCloud[poly[i+1]]]) 
-        # get the last connection
-        pairs.append([object.pointCloud[poly[-1]], object.pointCloud[poly[0]]])
+        # convert each poly into a set of 3D points
+        # this is an ORDERED list
+        points3D: list[Vector3] = []
+        for p in poly:
+            points3D.append(object.pointCloud[p])
 
-        for pair in pairs:
-            points_proj_2d = project(pair, CAMERA_Z_OFFSET)
-            drawLine(window, points_proj_2d[0], points_proj_2d[1], object.color)
+        # project the points in this poly into display
+        points_projected_plane = project(points3D, CAMERA_Z_OFFSET)
+        points_projected_display = projectToDisplayCoordinates(points_projected_plane, window.winfo_reqwidth(), window.winfo_reqheight())
+
+        # fill in this polygon
+        polyFill(object, poly, points_projected_display)
+        
+        # make and draw each pair of points in order --> OUTLINE 
+        for p in range(len(points_projected_display) - 1):
+            drawLine(window, points_projected_display[p], points_projected_display[p+1], object.color)
+        drawLine(window, points_projected_display[-1], points_projected_display[0], object.color) # don't forget the last pair of points
 
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
 # draw the actual line using the built-in create_line method
 def drawLine(window, start: Vector2, end: Vector2, color="black") -> None:
-    
-    start_proj, end_proj = projectToDisplayCoordinates([start, end], window.winfo_reqwidth(), window.winfo_reqheight())
 
     window.create_line(start_proj[0], start_proj[1], end_proj[0], end_proj[1], fill=color)
 
@@ -305,14 +310,15 @@ def drawLine(window, start: Vector2, end: Vector2, color="black") -> None:
 # will return a NEW list of points.  We will not want to keep around the projected points in our object as
 # they are only used in rendering
 # Assumes the viewer is at (0, 0, -distance), looking up the Z axis 
-def project(points: list[Vector3], distance: float) -> list[Vector2]:
+def project(points: list[Vector3], distance: float) -> list[Vector3]:
     
     ps = []
     
     for point in points:
         x_proj = distance * (point[0] / (distance + point[2]))
         y_proj = distance * (point[1] / (distance + point[2]))
-        ps.append((x_proj, y_proj))
+        z_proj = distance * (point[2] / (distance + point[2]))
+        ps.append([x_proj, y_proj, z_proj])
 
     return ps
 
@@ -320,16 +326,16 @@ def project(points: list[Vector3], distance: float) -> list[Vector2]:
 # NEW list of points.  We will not want to keep around the display coordinate points in our object as 
 # they are only used in rendering.
 # Assumes the center of the canvas is the origin of the original coordinates 
-def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) -> list[Vector2]:
+def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) -> list[Vector3]:
     
-    displayXY = []
+    displayXYZ = []
 
     for point in points:
         x_proj = (width / 2) + point[0]
         y_proj = (height / 2) - point[1]
-        displayXY.append((x_proj, y_proj))
+        displayXYZ.append([x_proj, y_proj, point[2]]) # leave z in unaffected 
 
-    return displayXY
+    return displayXYZ
 
 # Linear interpolation 
 # Returns a list of numbers that are linearly evenly spaced out 
@@ -462,7 +468,7 @@ def polyIsVisible(object: Object, poly: Polygon) -> bool:
     return (vis > 0)
 
 # Fill in polygons function
-def polyFill(object: Object, poly: Polygon) -> None:
+def polyFill(object: Object, poly: Polygon, proj: list[Vector2]) -> None:
     
     # collect the points themselves for easy reference 
     points = []
@@ -473,8 +479,6 @@ def polyFill(object: Object, poly: Polygon) -> None:
     points.sort(key=lambda p: p[1])
 
     # create edge table 
-    for e in range(len(points) - 1):
-        pass
 
 # **************************************************************************
 # Everything below this point implements the interface
