@@ -171,6 +171,19 @@ class RowVector(Matrix):
     def dehomogenize(this):
         elements = copy.deepcopy(this.elements)[:-1] # use slicing to get everything except last element 
         return RowVector(elements)
+    
+class EdgeFill:
+
+    xStart = None
+    yStart = None
+    yEnd = None 
+    dX = None 
+
+    def __init__(this, xStart, yStart, yEnd, dX) -> None:
+        this.xStart = xStart
+        this.yStart = yStart
+        this.yEnd = yEnd
+        this.dX = dX
 
 #************************************************************************************
 
@@ -447,6 +460,21 @@ def polyIsVisible(object: Object, poly: Polygon) -> bool:
     vis = N.dot(RowVector([0, 0, -CAMERA_Z_OFFSET])) - D
 
     return (vis > 0)
+
+# Fill in polygons function
+def polyFill(object: Object, poly: Polygon) -> None:
+    
+    # collect the points themselves for easy reference 
+    points = []
+    for i in range(len(poly)):
+        points.append(object.pointCloud[poly[i]])
+
+    # sort the points by Y-axis 
+    points.sort(key=lambda p: p[1])
+
+    # create edge table 
+    for e in range(len(points) - 1):
+        pass
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -752,5 +780,7 @@ if __name__ == "__main__":
 
     zMinusButton = Button(rotationcontrols, text="Z-", command=(lambda: zMinus(w, selected_object)))
     zMinusButton.pack(side=LEFT)    
+
+    polyFill(Pyramid1, pyramidPolys[0])
 
     root.mainloop()
