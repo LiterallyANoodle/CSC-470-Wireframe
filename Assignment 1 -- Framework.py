@@ -18,6 +18,9 @@ CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
 
+OUTLINE = True
+ROUNDING = True
+
 # point type hint 
 Vector3 = list[float, float, float]
 Vector2 = list[float, float]
@@ -172,18 +175,22 @@ class RowVector(Matrix):
         elements = copy.deepcopy(this.elements)[:-1] # use slicing to get everything except last element 
         return RowVector(elements)
     
-class EdgeFill:
+class EdgeEntry:
 
+    edgeName = None 
+    
     xStart = None
     yStart = None
     yEnd = None 
     dX = None 
 
-    def __init__(this, xStart, yStart, yEnd, dX) -> None:
-        this.xStart = xStart
-        this.yStart = yStart
-        this.yEnd = yEnd
-        this.dX = dX
+    # these fields will be filled out as they are calculated 
+    def __init__(this, edgeName) -> None:
+        this.edgeName = edgeName
+        this.xStart = None
+        this.yStart = None
+        this.yEnd = None
+        this.dX = None
 
 #************************************************************************************
 
@@ -290,21 +297,120 @@ def drawObject(window, object: Object) -> None:
         points_projected_plane = project(points3D, CAMERA_Z_OFFSET)
         points_projected_display = projectToDisplayCoordinates(points_projected_plane, window.winfo_reqwidth(), window.winfo_reqheight())
 
+        # round the coordinates 
+        if ROUNDING:
+            points_projected_display = roundVectorList(points_projected_display)
+
         # fill in this polygon
-        polyFill(object, poly, points_projected_display)
+        color = ['red', 'yellow', 'blue', 'green', 'cyan', 'magenta']
+        colorIndex = object.polygons.index(poly)
+        polyFill(window, points_projected_display, color[colorIndex])
         
         # make and draw each pair of points in order --> OUTLINE 
-        for p in range(len(points_projected_display) - 1):
-            drawLine(window, points_projected_display[p], points_projected_display[p+1], object.color)
-        drawLine(window, points_projected_display[-1], points_projected_display[0], object.color) # don't forget the last pair of points
+        if OUTLINE:
+            for p in range(len(points_projected_display) - 1):
+                drawLine(window, points_projected_display[p], points_projected_display[p+1], object.color)
+            drawLine(window, points_projected_display[-1], points_projected_display[0], object.color) # don't forget the last pair of points
+
+# Fill in polygons function
+# points come into the function pre-projected as proj
+def polyFill(window, proj: list[Vector3], color="blue") -> None:
+
+    # create edge table 
+    edgeTable = computeEdgeTable(proj)
+
+    if edgeTable == []:
+        return
+
+    # determine all the start and end Y values for the whole poly
+    firstY = edgeTable[0].yStart
+    lastY = edgeTable[-1].yEnd
+
+    # prepare indeces for scanning 
+    i = 0
+    j = 1
+    next = 2
+
+    # prepare x vaues of the first line that will be painted 
+    edgeIX = edgeTable[i].xStart
+    edgeJX = edgeTable[j].xStart
+
+    # do painting loop 
+    for y in range(int(firstY), int(lastY)): 
+
+        # find the leftness 
+        if edgeIX < edgeJX:
+            leftX = edgeIX
+            rightX = edgeJX
+        else: 
+            leftX = edgeJX
+            rightX = edgeIX
+
+        # paint the line 
+        for x in range(int(leftX), int(rightX)+1): # up to and including
+            drawPixel(window, x, y, color)
+
+        # update x values 
+        edgeIX += edgeTable[i].dX
+        edgeJX += edgeTable[j].dX
+
+        # reached the bottom of an edge, swap out
+        if y >= edgeTable[i].yEnd and y < lastY:
+            i = next
+            edgeIX = edgeTable[i].xStart
+            next += 1
+        if y >= edgeTable[j].yEnd and y < lastY: 
+            j = next
+            edgeJX = edgeTable[j].xStart
+            next += 1
+
+# helper to get the edge table constants
+def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
+    
+    # make edges from each neighbor, but in such a way that all edges flow from the top to the bottom
+    # this way, we can compare the data in the edge table for sorting instead of the individual edges
+    # this checking also guarantees that in horizonal edges, the leftmost vert is the first vert (due to clockwise definition)
+    # we also do checking for horizontal edges here to prevent them entering the table
+    edges = []
+    for i in range(len(verts) - 1):
+        if verts[i][1] != verts[i+1][1]:
+            if verts[i][1] <= verts[i+1][1]:
+                edges.append([verts[i], verts[i+1]])
+            else:
+                edges.append([verts[i+1], verts[i]])
+    if verts[-1][1] != verts[0][1]:
+        if verts[-1][1] <= verts[0][1]:
+            edges.append([verts[-1], verts[0]])
+        else:
+            edges.append([verts[0], verts[-1]])
+
+    # since our shape is convex we can guarantee that the next point down is the point to swap at 
+    # therefore we can just sort edges now and make our edge entries
+    edges.sort(key=lambda edge: edge[0][1])
+    edgeTable = []
+    for e in edges:
+        entry = EdgeEntry(e)
+
+        # fill in all statically calculated data 
+        entry.xStart = e[0][0]
+        entry.yStart = e[0][1]
+        entry.yEnd = e[1][1]
+        entry.dX = (e[1][0] - e[0][0]) / (e[1][1] - e[0][1]) # run over rise 
+
+        edgeTable.append(entry)
+
+    return edgeTable
 
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
 # draw the actual line using the built-in create_line method
-def drawLine(window, start: Vector2, end: Vector2, color="black") -> None:
+def drawLine(window, start: Vector3, end: Vector3, color="black") -> None:
+    window.create_line(start[0], start[1], end[0], end[1], fill=color)
 
-    window.create_line(start_proj[0], start_proj[1], end_proj[0], end_proj[1], fill=color)
+# Accounts for create_line requiring special parameters
+def drawPixel(window, x, y, color="blue") -> None:
+    window.create_line(x, y, x+1, y, fill=color)
 
 # This function converts from 3D to 2D (+ depth) using the perspective projection technique.  Note that it
 # will return a NEW list of points.  We will not want to keep around the projected points in our object as
@@ -398,6 +504,18 @@ def negativeVector3(point: Vector3) -> Vector3:
         inverted[dimension] = -point[dimension]
     return inverted
 
+# helper for rounding vector coordinates
+def roundVectorList(points: list) -> list:
+
+    roundedList = []
+    for p in points:
+        roundedPoint = []
+        for i in p:
+            roundedPoint.append(float(round(i)))
+        roundedList.append(roundedPoint)
+
+    return roundedList
+
 # sets the default position to the new location 
 def setDefaultPosition(object: Object, position: Vector3) -> None:
 
@@ -466,19 +584,6 @@ def polyIsVisible(object: Object, poly: Polygon) -> bool:
     vis = N.dot(RowVector([0, 0, -CAMERA_Z_OFFSET])) - D
 
     return (vis > 0)
-
-# Fill in polygons function
-def polyFill(object: Object, poly: Polygon, proj: list[Vector2]) -> None:
-    
-    # collect the points themselves for easy reference 
-    points = []
-    for i in range(len(poly)):
-        points.append(object.pointCloud[poly[i]])
-
-    # sort the points by Y-axis 
-    points.sort(key=lambda p: p[1])
-
-    # create edge table 
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -693,12 +798,32 @@ if __name__ == "__main__":
     # give a default position away from the origin 
     setupObject(Cube2, [-60, 60, 50])
 
+    # ***************************** Initialize TestPoly1 Object ***************************
+    # Definition  of the five underlying points
+    testpoly1_top = [0, 100, 0]
+    testpoly1_left = [-100, 0, 0]
+    testpoly1_right = [100, 0, 0]
+
+    testpoly1_points = [testpoly1_top, testpoly1_right, testpoly1_left]
+
+    # Definition of the five polygon faces using the meaningful point names
+    # Polys are defined in clockwise order when viewed from the outside
+    testpoly1_front = [0, 1, 2]
+
+    testpoly1_polys = [testpoly1_front]
+
+    # create the tetrahedron object from defined data
+    TestPoly1 = Object(testpoly1_polys, testpoly1_points)
+
+    # give a default position away from the origin 
+    setupObject(TestPoly1, [0,0,0])
+
     # ***************************** begin main instrucions *****************************
     root = Tk()
     outerframe = Frame(root)
     outerframe.pack()
 
-    object_group = [Tetrahedron1, Pyramid1, Cube1, Cube2]
+    object_group = [Tetrahedron1, TestPoly1, Cube1, Cube2]
     selected_object = None
     selectObject() # by default selects the 0th object to start
 
@@ -784,7 +909,5 @@ if __name__ == "__main__":
 
     zMinusButton = Button(rotationcontrols, text="Z-", command=(lambda: zMinus(w, selected_object)))
     zMinusButton.pack(side=LEFT)    
-
-    polyFill(Pyramid1, pyramidPolys[0])
 
     root.mainloop()
