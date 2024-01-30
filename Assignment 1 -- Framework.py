@@ -738,14 +738,14 @@ if __name__ == "__main__":
 
     # ***************************** Initialize Cube1 Object ***************************
     # Definition  of the five underlying points
-    cube1_front_bottom_left = [-20, -20, -20]
-    cube1_front_bottom_right = [20, -20, -20]
-    cube1_front_top_left = [-20, 20, -20]
-    cube1_front_top_right = [20, 20, -20]
-    cube1_back_bottom_left = [-20, -20, 20]
-    cube1_back_bottom_right = [20, -20, 20]
-    cube1_back_top_left = [-20, 20, 20]
-    cube1_back_top_right = [20, 20, 20]
+    cube1_front_bottom_left = [-40, -40, -40]
+    cube1_front_bottom_right = [40, -40, -40]
+    cube1_front_top_left = [-40, 40, -40]
+    cube1_front_top_right = [40, 40, -40]
+    cube1_back_bottom_left = [-40, -40, 40]
+    cube1_back_bottom_right = [40, -40, 40]
+    cube1_back_top_left = [-40, 40, 40]
+    cube1_back_top_right = [40, 40, 40]
 
     cube1_points = [cube1_front_bottom_left, cube1_front_bottom_right, cube1_front_top_left, cube1_front_top_right, \
                     cube1_back_bottom_left, cube1_back_bottom_right, cube1_back_top_left, cube1_back_top_right]
@@ -765,18 +765,18 @@ if __name__ == "__main__":
     Cube1 = Object(cube1_polys, cube1_points)
 
     # give a default position away from the origin 
-    setupObject(Cube1, [60, 60, 50])
+    setupObject(Cube1, [80, 60, 50])
 
     # ***************************** Initialize Cube2 Object ***************************
     # Definition  of the five underlying points
-    cube2_front_bottom_left = [-20, -20, -20]
-    cube2_front_bottom_right = [20, -20, -20]
-    cube2_front_top_left = [-20, 20, -20]
-    cube2_front_top_right = [20, 20, -20]
-    cube2_back_bottom_left = [-20, -20, 20]
-    cube2_back_bottom_right = [20, -20, 20]
-    cube2_back_top_left = [-20, 20, 20]
-    cube2_back_top_right = [20, 20, 20]
+    cube2_front_bottom_left = [-40, -40, -40]
+    cube2_front_bottom_right = [40, -40, -40]
+    cube2_front_top_left = [-40, 40, -40]
+    cube2_front_top_right = [40, 40, -40]
+    cube2_back_bottom_left = [-40, -40, 40]
+    cube2_back_bottom_right = [40, -40, 40]
+    cube2_back_top_left = [-40, 40, 40]
+    cube2_back_top_right = [40, 40, 40]
 
     cube2_points = [cube2_front_bottom_left, cube2_front_bottom_right, cube2_front_top_left, cube2_front_top_right, \
                     cube2_back_bottom_left, cube2_back_bottom_right, cube2_back_top_left, cube2_back_top_right]
@@ -796,7 +796,7 @@ if __name__ == "__main__":
     Cube2 = Object(cube2_polys, cube2_points)
 
     # give a default position away from the origin 
-    setupObject(Cube2, [-60, 60, 50])
+    setupObject(Cube2, [-80, 60, 50])
 
     # ***************************** Initialize TestPoly1 Object ***************************
     # Definition  of the five underlying points
@@ -823,7 +823,7 @@ if __name__ == "__main__":
     outerframe = Frame(root)
     outerframe.pack()
 
-    object_group = [Tetrahedron1, TestPoly1, Cube1, Cube2]
+    object_group = [Tetrahedron1, Pyramid1, Cube1, Cube2]
     selected_object = None
     selectObject() # by default selects the 0th object to start
 
