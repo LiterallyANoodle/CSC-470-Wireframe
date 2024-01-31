@@ -1,9 +1,9 @@
 #######################################################################################
 # Name: Matthew Mahan
 # SID: 103 85 109
-# Due Date: 1/9/2024
-# Assignment Number: 1
-# Desc: Program displays simple wireframes of primitive objects made of polygons with options for basic transformations.
+# Due Date: 2/1/2024
+# Assignment Number: 2
+# Desc: Program displays basic 3D shapes with backface culling, polygon filling, and z buffer. 
 #######################################################################################
 
 # ****NOTE: This framework defines a world with a single polygon: a pyramid ****
@@ -179,9 +179,10 @@ class RowVector(Matrix):
         elements = copy.deepcopy(this.elements)[:-1] # use slicing to get everything except last element 
         return RowVector(elements)
     
+# This is to keep track of an entry in the edge table 
 class EdgeEntry:
 
-    edgeName = None 
+    edgeVerts = None 
     
     xStart = None
     yStart = None
@@ -192,7 +193,7 @@ class EdgeEntry:
 
     # these fields will be filled out as they are calculated 
     def __init__(this, edgeName) -> None:
-        this.edgeName = edgeName
+        this.edgeVerts = edgeName
         this.xStart = None
         this.yStart = None
         this.yEnd = None
@@ -370,6 +371,7 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
             dZFill = 0
 
         # paint the line 
+        # includes a little extra code to make the lines nice 
         for x in range(int(leftX), int(rightX)+1): # up to and including
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
                 if POLY_FILL:
@@ -479,23 +481,6 @@ def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) 
 
     return displayXYZ
 
-# Linear interpolation 
-# Returns a list of numbers that are linearly evenly spaced out 
-# The length of the list is determined by the number of steps requested
-# Because no libraries may be imported, we cannot use time to make this framerate independent. "steps" is effectively how many frames it should take, which will be very fast.
-def lerp(start: float, end: float, steps: int) -> list[float]:
-
-    intermediates = []
-
-    stepSize = (end - start) / steps
-    
-    for step in range(steps):
-        intermediates.append(step * stepSize + start)
-    # manually append the final state to ensure there's no floating point rounding error shenannigans
-    intermediates.append(float(end))
-
-    return intermediates
-
 # Check if two points occupy the same space 
 # Useful for determining possible duplicate points in an object 
 def areSimilarPoints(p1: Vector3, p2: Vector3) -> bool:
@@ -571,6 +556,7 @@ def setDefaultPosition(object: Object, position: Vector3) -> None:
     object.pointCloud = currentPointCloud
     object.anchorPoint = currentAnchorPoint
 
+# changes the selection, marked with red
 def selectObject(index=0) -> None:
     global selected_object
     global object_group
@@ -582,6 +568,7 @@ def selectObject(index=0) -> None:
     selected_object = object_group[index]
     selected_object.outlineColor = "red"
 
+# resets everything and then draws the new frame
 def drawAllObjects(window, object_group) -> None:
 
     # reset everything 
@@ -618,6 +605,9 @@ def polyIsVisible(object: Object, poly: Polygon) -> bool:
 
     return (vis > 0)
 
+# a bunch of functions for keyboard controls.....
+# arrows for object selections
+# numbers for mode selections 
 def leftPressed(event) -> None:
     global selected_object
     global object_group
