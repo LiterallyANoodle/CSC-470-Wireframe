@@ -40,12 +40,14 @@ class Object:
     defaultPointCloud: list[Vector3] = []
 
     anchorPoint: Vector3 = [0, 0, 0]
-    color: str = "black"
+    outlineColor: str = "black"
+    polyColor: list[str] = None
 
     def __init__(this, polygons, points, anchorPoint=None):
         this.polygons = polygons
         this.pointCloud = points
         this.defaultPointCloud = copy.deepcopy(points)
+        this.polyColor = ['white', '#cccccc', '#999999', '#666666', '#333333', 'black'] # default colors 
         
         this.anchorPoint = anchorPoint
         if anchorPoint == None:
@@ -309,15 +311,14 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
 
         if POLY_FILL or BESPOKE_OUTLINE:
             # fill in this polygon
-            color = ['red', 'yellow', 'blue', 'green', 'cyan', 'magenta']
             colorIndex = object.polygons.index(poly)
-            polyFill(window, points_projected_display, zBuffer, color[colorIndex], object.color)
+            polyFill(window, points_projected_display, zBuffer, object.polyColor[colorIndex], object.outlineColor)
     
         # make and draw each pair of points in order --> OUTLINE from tkinter
         if DEFAULT_OUTLINE:
             for p in range(len(points_projected_display) - 1):
-                drawLine(window, points_projected_display[p], points_projected_display[p+1], object.color)
-            drawLine(window, points_projected_display[-1], points_projected_display[0], object.color) # don't forget the last pair of points
+                drawLine(window, points_projected_display[p], points_projected_display[p+1], object.outlineColor)
+            drawLine(window, points_projected_display[-1], points_projected_display[0], object.outlineColor) # don't forget the last pair of points
 
 # Fill in polygons function
 # points come into the function pre-projected as proj
@@ -577,9 +578,9 @@ def selectObject(index=0) -> None:
     if selected_object == None:
         selected_object = object_group[0]
 
-    selected_object.color = "black"
+    selected_object.outlineColor = "black"
     selected_object = object_group[index]
-    selected_object.color = "red"
+    selected_object.outlineColor = "red"
 
 def drawAllObjects(window, object_group) -> None:
 
@@ -813,10 +814,12 @@ if __name__ == "__main__":
     leftpoly = [0, 4, 3]
     bottompoly = [1, 2, 3, 4]
 
-    pyramidPolys = [frontpoly, rightpoly, backpoly, leftpoly, bottompoly]
+    pyramidPolys = [bottompoly, frontpoly, rightpoly, backpoly, leftpoly]
+    pyramidPolyColors = ['black', 'red', 'green', 'blue', 'yellow']
 
     # create the tetrahedron object from defined data
     Pyramid1 = Object(pyramidPolys, pyramidPoints)
+    Pyramid1.polyColor = pyramidPolyColors
 
     # give a default position away from the origin 
     setupObject(Pyramid1, [0, 0, 0])
@@ -868,7 +871,7 @@ if __name__ == "__main__":
     cube1_top_poly = [2, 6, 7, 3]
     cube1_bottom_poly = [4, 0, 1, 5]
 
-    cube1_polys = [cube1_front_poly, cube1_right_poly, cube1_back_poly, cube1_left_poly, cube1_top_poly, cube1_bottom_poly]
+    cube1_polys = [cube1_top_poly, cube1_front_poly, cube1_right_poly, cube1_back_poly, cube1_left_poly, cube1_bottom_poly]
 
     # create the tetrahedron object from defined data
     Cube1 = Object(cube1_polys, cube1_points)
@@ -899,7 +902,7 @@ if __name__ == "__main__":
     cube2_top_poly = [2, 6, 7, 3]
     cube2_bottom_poly = [4, 0, 1, 5]
 
-    cube2_polys = [cube2_front_poly, cube2_right_poly, cube2_back_poly, cube2_left_poly, cube2_top_poly, cube2_bottom_poly]
+    cube2_polys = [cube2_top_poly, cube2_front_poly, cube2_right_poly, cube2_back_poly, cube2_left_poly, cube2_bottom_poly]
 
     # create the tetrahedron object from defined data
     Cube2 = Object(cube2_polys, cube2_points)
