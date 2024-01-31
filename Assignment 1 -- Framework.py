@@ -18,9 +18,9 @@ CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
 
-DEFAULT_OUTLINE = False
-BESPOKE_OUTLINE = True
-POLY_FILL = False
+DEFAULT_OUTLINE = True
+BESPOKE_OUTLINE = not DEFAULT_OUTLINE
+POLY_FILL = True
 ROUNDING = True
 
 # point type hint 
@@ -374,7 +374,7 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
                 if POLY_FILL:
                     drawPixel(window, x, y, polyColor)
                 if BESPOKE_OUTLINE:
-                    if (x == int(leftX) or x == int(rightX) or y == int(firstY) or y == int(lastY)-1):
+                    if (x == int(leftX) or x == int(rightX) or y == int(firstY) or y == int(lastY)):
                         drawPixel(window, x, y, objColor)          
                 zBuffer.setElement(x, y, z)
             z += dZFill
@@ -583,27 +583,17 @@ def selectObject(index=0) -> None:
 
 def drawAllObjects(window, object_group) -> None:
 
-    zBuffer = Matrix(CANVAS_WIDTH, CANVAS_HEIGHT)
+    # reset everything 
+    window.delete(ALL)
 
+    # reset zbuf
+    zBuffer = Matrix(CANVAS_WIDTH, CANVAS_HEIGHT)
     for i in range(len(zBuffer.elements)):
         zBuffer.elements[i] = CAMERA_Z_OFFSET
 
+    # draw
     for obj in object_group:
         drawObject(window, obj, zBuffer)
-
-def leftPressed(event) -> None:
-    global selected_object
-    global object_group
-    global w 
-    selectObject((object_group.index(selected_object) - 1) % len(object_group))
-    drawAllObjects(w, object_group)
-
-def rightPressed(event) -> None:
-    global selected_object
-    global object_group
-    global w
-    selectObject((object_group.index(selected_object) + 1) % len(object_group))
-    drawAllObjects(w, object_group)
 
 # backface culling 
 def polyIsVisible(object: Object, poly: Polygon) -> bool:
@@ -626,6 +616,83 @@ def polyIsVisible(object: Object, poly: Polygon) -> bool:
     vis = N.dot(RowVector([0, 0, -CAMERA_Z_OFFSET])) - D
 
     return (vis > 0)
+
+def leftPressed(event) -> None:
+    global selected_object
+    global object_group
+    global w 
+    selectObject((object_group.index(selected_object) - 1) % len(object_group))
+    drawAllObjects(w, object_group)
+
+def rightPressed(event) -> None:
+    global selected_object
+    global object_group
+    global w
+    selectObject((object_group.index(selected_object) + 1) % len(object_group))
+    drawAllObjects(w, object_group)
+
+def onePressed(event) -> None:
+    global selected_object
+    global object_group
+    global w
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    POLY_FILL = False
+    if DEFAULT_OUTLINE:
+        BESPOKE_OUTLINE = False
+    elif BESPOKE_OUTLINE:
+        DEFAULT_OUTLINE = False
+    else:
+        DEFAULT_OUTLINE = True
+    drawAllObjects(w, object_group)
+
+def twoPressed(event) -> None:
+    global selected_object
+    global object_group
+    global w
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    POLY_FILL = True
+    if DEFAULT_OUTLINE:
+        BESPOKE_OUTLINE = False
+    elif BESPOKE_OUTLINE:
+        DEFAULT_OUTLINE = False
+    else:
+        DEFAULT_OUTLINE = True
+    drawAllObjects(w, object_group)
+
+def threePressed(event) -> None:
+    global selected_object
+    global object_group
+    global w
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    POLY_FILL = True
+    DEFAULT_OUTLINE = False
+    BESPOKE_OUTLINE = False
+    drawAllObjects(w, object_group)
+
+def fourPressed(event) -> None:
+    global selected_object
+    global object_group
+    global w
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    if DEFAULT_OUTLINE or BESPOKE_OUTLINE:
+        DEFAULT_OUTLINE = not DEFAULT_OUTLINE
+        BESPOKE_OUTLINE = not DEFAULT_OUTLINE
+    else:
+        DEFAULT_OUTLINE = True
+    drawAllObjects(w, object_group)
+
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -876,6 +943,10 @@ if __name__ == "__main__":
     # keyboard input 
     root.bind("<Left>", leftPressed)
     root.bind("<Right>", rightPressed)
+    root.bind("1", onePressed)
+    root.bind("2", twoPressed)
+    root.bind("3", threePressed)
+    root.bind("4", fourPressed)
 
     controlpanel = Frame(outerframe)
     controlpanel.pack()
