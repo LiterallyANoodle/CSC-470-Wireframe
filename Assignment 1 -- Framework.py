@@ -18,7 +18,9 @@ CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
 
-OUTLINE = False
+DEFAULT_OUTLINE = False
+BESPOKE_OUTLINE = True
+POLY_FILL = False
 ROUNDING = True
 
 # point type hint 
@@ -305,13 +307,14 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
         if ROUNDING:
             points_projected_display = roundVectorList(points_projected_display)
 
-        # fill in this polygon
-        color = ['red', 'yellow', 'blue', 'green', 'cyan', 'magenta']
-        colorIndex = object.polygons.index(poly)
-        polyFill(window, points_projected_display, zBuffer, color[colorIndex], object.color)
-        
-        # make and draw each pair of points in order --> OUTLINE 
-        if OUTLINE:
+        if POLY_FILL or BESPOKE_OUTLINE:
+            # fill in this polygon
+            color = ['red', 'yellow', 'blue', 'green', 'cyan', 'magenta']
+            colorIndex = object.polygons.index(poly)
+            polyFill(window, points_projected_display, zBuffer, color[colorIndex], object.color)
+    
+        # make and draw each pair of points in order --> OUTLINE from tkinter
+        if DEFAULT_OUTLINE:
             for p in range(len(points_projected_display) - 1):
                 drawLine(window, points_projected_display[p], points_projected_display[p+1], object.color)
             drawLine(window, points_projected_display[-1], points_projected_display[0], object.color) # don't forget the last pair of points
@@ -368,7 +371,11 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
         # paint the line 
         for x in range(int(leftX), int(rightX)+1): # up to and including
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
-                drawPixel(window, x, y, objColor if (x == int(leftX) or x == int(rightX)) else polyColor)
+                if POLY_FILL:
+                    drawPixel(window, x, y, polyColor)
+                if BESPOKE_OUTLINE:
+                    if (x == int(leftX) or x == int(rightX) or y == int(firstY) or y == int(lastY)-1):
+                        drawPixel(window, x, y, objColor)          
                 zBuffer.setElement(x, y, z)
             z += dZFill
 
