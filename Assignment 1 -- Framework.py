@@ -18,7 +18,7 @@ CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
 
-OUTLINE = True
+OUTLINE = False
 ROUNDING = True
 
 # point type hint 
@@ -196,15 +196,6 @@ class EdgeEntry:
         this.zStart = None
         this.dZ = None
 
-
-# The Z Buffer 
-# Just a BIG Matrix
-# init's to view distance 
-zBuffer = Matrix(CANVAS_WIDTH, CANVAS_HEIGHT)
-
-for i in range(len(zBuffer.elements)):
-    zBuffer.elements[i] = CAMERA_Z_OFFSET
-
 #************************************************************************************
 
 # This function resets the pyramid to its original size and location in 3D space
@@ -292,8 +283,8 @@ def rotateX(object: Object, degrees: float) -> None:
 # The function will draw an object by repeatedly callying drawLine on each line in each polygon in the object
 # I decided it's not worth having a separate drawpoly function. Needless cruft in how I have arranged the types. 
 # A poly is basically just an object with a single side anyway. 
-def drawObject(window, object: Object) -> None:
-
+def drawObject(window, object: Object, zBuffer: Matrix) -> None:
+  
     for poly in object.polygons:
 
         # check visibility (backface culling)
@@ -317,7 +308,7 @@ def drawObject(window, object: Object) -> None:
         # fill in this polygon
         color = ['red', 'yellow', 'blue', 'green', 'cyan', 'magenta']
         colorIndex = object.polygons.index(poly)
-        polyFill(window, points_projected_display, color[colorIndex])
+        polyFill(window, points_projected_display, zBuffer, color[colorIndex])
         
         # make and draw each pair of points in order --> OUTLINE 
         if OUTLINE:
@@ -327,7 +318,7 @@ def drawObject(window, object: Object) -> None:
 
 # Fill in polygons function
 # points come into the function pre-projected as proj
-def polyFill(window, proj: list[Vector3], color="blue") -> None:
+def polyFill(window, proj: list[Vector3], zBuffer: Matrix, pColor="blue") -> None:
 
     # create edge table 
     edgeTable = computeEdgeTable(proj)
@@ -377,7 +368,7 @@ def polyFill(window, proj: list[Vector3], color="blue") -> None:
         # paint the line 
         for x in range(int(leftX), int(rightX)+1): # up to and including
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
-                drawPixel(window, x, y, color)
+                drawPixel(window, x, y, pColor)
                 zBuffer.setElement(x, y, z)
             z += dZFill
 
@@ -583,22 +574,29 @@ def selectObject(index=0) -> None:
     selected_object = object_group[index]
     selected_object.color = "red"
 
-def drawAllObjects() -> None:
-    global object_group
+def drawAllObjects(window, object_group) -> None:
+
+    zBuffer = Matrix(CANVAS_WIDTH, CANVAS_HEIGHT)
+
+    for i in range(len(zBuffer.elements)):
+        zBuffer.elements[i] = CAMERA_Z_OFFSET
+
     for obj in object_group:
-        drawObject(w, obj)
+        drawObject(window, obj, zBuffer)
 
 def leftPressed(event) -> None:
     global selected_object
     global object_group
+    global w 
     selectObject((object_group.index(selected_object) - 1) % len(object_group))
-    drawAllObjects()
+    drawAllObjects(w, object_group)
 
 def rightPressed(event) -> None:
     global selected_object
     global object_group
+    global w
     selectObject((object_group.index(selected_object) + 1) % len(object_group))
-    drawAllObjects()
+    drawAllObjects(w, object_group)
 
 # backface culling 
 def polyIsVisible(object: Object, poly: Polygon) -> bool:
@@ -625,101 +623,101 @@ def polyIsVisible(object: Object, poly: Polygon) -> bool:
 # **************************************************************************
 # Everything below this point implements the interface
 def reset(window, object):
+    global object_group
     window.delete(ALL)
     for obj in object_group:
         resetObject(obj)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def setPosition(window, object):
+    global object_group
     window.delete(ALL)
     setDefaultPosition(object, object.anchorPoint)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def larger(window, object):
+    global object_group
     window.delete(ALL)
     scale(object, 1.1)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def smaller(window, object):
+    global object_group
     window.delete(ALL)
     scale(object, .9)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def forward(window, object):
+    global object_group
     window.delete(ALL)
     translate(object, [0,0,5])
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def backward(window, object):
+    global object_group
     window.delete(ALL)
     translate(object, [0,0,-5])
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def left(window, object):
+    global object_group
     window.delete(ALL)
     translate(object, [-5,0,0])
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def right(window, object):
+    global object_group
     window.delete(ALL)
     translate(object, [5,0,0])
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def up(window, object):
+    global object_group
     window.delete(ALL)
     translate(object, [0,5,0])
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def down(window, object):
+    global object_group
     window.delete(ALL)
     translate(object, [0,-5,0])
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def xPlus(window, object):
+    global object_group
     window.delete(ALL)
     rotateX(object, 5)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def xMinus(window, object):
+    global object_group
     window.delete(ALL)
     rotateX(object, -5)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def yPlus(window, object):
+    global object_group
     window.delete(ALL)
     rotateY(object, 5)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def yMinus(window, object):
+    global object_group
     window.delete(ALL)
     rotateY(object, -5)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def zPlus(window, object):
+    global object_group
     window.delete(ALL)
     rotateZ(object, 5)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 def zMinus(window, object):
+    global object_group
     window.delete(ALL)
     rotateZ(object, -5)
-    for obj in object_group:
-        drawObject(window, obj)
+    drawAllObjects(window, object_group)
 
 if __name__ == "__main__":
 
@@ -865,7 +863,7 @@ if __name__ == "__main__":
     selectObject() # by default selects the 0th object to start
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
-    drawAllObjects()
+    drawAllObjects(w, object_group)
     w.pack()
 
     # keyboard input 
