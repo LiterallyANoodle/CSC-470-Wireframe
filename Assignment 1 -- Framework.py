@@ -183,6 +183,8 @@ class EdgeEntry:
     yStart = None
     yEnd = None 
     dX = None 
+    zStart = None
+    dZ = None
 
     # these fields will be filled out as they are calculated 
     def __init__(this, edgeName) -> None:
@@ -191,6 +193,17 @@ class EdgeEntry:
         this.yStart = None
         this.yEnd = None
         this.dX = None
+        this.zStart = None
+        this.dZ = None
+
+
+# The Z Buffer 
+# Just a BIG Matrix
+# init's to view distance 
+zBuffer = Matrix(CANVAS_WIDTH, CANVAS_HEIGHT)
+
+for i in range(len(zBuffer.elements)):
+    zBuffer.elements[i] = CAMERA_Z_OFFSET
 
 #************************************************************************************
 
@@ -331,9 +344,11 @@ def polyFill(window, proj: list[Vector3], color="blue") -> None:
     j = 1
     next = 2
 
-    # prepare x vaues of the first line that will be painted 
+    # prepare x and z vaues of the first line that will be painted 
     edgeIX = edgeTable[i].xStart
     edgeJX = edgeTable[j].xStart
+    edgeIZ = edgeTable[i].zStart
+    edgeJZ = edgeTable[j].zStart
 
     # do painting loop 
     for y in range(int(firstY), int(lastY)): 
@@ -342,26 +357,46 @@ def polyFill(window, proj: list[Vector3], color="blue") -> None:
         if edgeIX < edgeJX:
             leftX = edgeIX
             rightX = edgeJX
+            leftZ = edgeIZ
+            rightZ = edgeJZ
         else: 
             leftX = edgeJX
             rightX = edgeIX
+            leftZ = edgeJZ
+            rightZ = edgeIZ
+
+        # initial z 
+        z = leftZ
+
+        # compute dZ for this fill line
+        if rightZ - leftZ != 0:
+            dZFill = (rightZ - leftZ) / (rightX - leftX)
+        else:
+            dZFill = 0
 
         # paint the line 
         for x in range(int(leftX), int(rightX)+1): # up to and including
-            drawPixel(window, x, y, color)
+            if zBuffer.getElement(x, y) > z: # Z Buffer Check
+                drawPixel(window, x, y, color)
+                zBuffer.setElement(x, y, z)
+            z += dZFill
 
-        # update x values 
+        # update x and z values 
         edgeIX += edgeTable[i].dX
         edgeJX += edgeTable[j].dX
+        edgeIZ += edgeTable[i].dZ
+        edgeJZ += edgeTable[j].dZ
 
         # reached the bottom of an edge, swap out
         if y >= edgeTable[i].yEnd and y < lastY:
             i = next
             edgeIX = edgeTable[i].xStart
+            edgeIZ = edgeTable[i].zStart
             next += 1
         if y >= edgeTable[j].yEnd and y < lastY: 
             j = next
             edgeJX = edgeTable[j].xStart
+            edgeJZ = edgeTable[j].zStart
             next += 1
 
 # helper to get the edge table constants
@@ -396,6 +431,8 @@ def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
         entry.yStart = e[0][1]
         entry.yEnd = e[1][1]
         entry.dX = (e[1][0] - e[0][0]) / (e[1][1] - e[0][1]) # run over rise 
+        entry.zStart = e[0][2]
+        entry.dZ = (e[1][2] - e[0][2]) / (e[1][1] - e[0][1]) # the cooler run over rise
 
         edgeTable.append(entry)
 
