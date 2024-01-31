@@ -308,7 +308,7 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
         # fill in this polygon
         color = ['red', 'yellow', 'blue', 'green', 'cyan', 'magenta']
         colorIndex = object.polygons.index(poly)
-        polyFill(window, points_projected_display, zBuffer, color[colorIndex])
+        polyFill(window, points_projected_display, zBuffer, color[colorIndex], object.color)
         
         # make and draw each pair of points in order --> OUTLINE 
         if OUTLINE:
@@ -318,7 +318,7 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
 
 # Fill in polygons function
 # points come into the function pre-projected as proj
-def polyFill(window, proj: list[Vector3], zBuffer: Matrix, pColor="blue") -> None:
+def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', objColor='black') -> None:
 
     # create edge table 
     edgeTable = computeEdgeTable(proj)
@@ -368,7 +368,7 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, pColor="blue") -> Non
         # paint the line 
         for x in range(int(leftX), int(rightX)+1): # up to and including
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
-                drawPixel(window, x, y, pColor)
+                drawPixel(window, x, y, objColor if (x == int(leftX) or x == int(rightX)) else polyColor)
                 zBuffer.setElement(x, y, z)
             z += dZFill
 
