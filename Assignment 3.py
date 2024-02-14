@@ -18,10 +18,16 @@ CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
 
+NO_SHADING = 0
+FLAT_SHADING = 1
+GOURAUD_SHADING = 2
+PHONG_SHADING = 3
+
 DEFAULT_OUTLINE = True
 BESPOKE_OUTLINE = not DEFAULT_OUTLINE
 POLY_FILL = True
 ROUNDING = True
+SHADING_STYLE = NO_SHADING
 
 # point type hint 
 Vector3 = list[float, float, float]
@@ -194,6 +200,8 @@ class EdgeEntry:
     zStart = None
     dZ = None
 
+    # flat shading
+
     # these fields will be filled out as they are calculated 
     def __init__(this, edgeName) -> None:
         this.edgeVerts = edgeName
@@ -335,8 +343,8 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
         return
 
     # determine all the start and end Y values for the whole poly
-    firstY = clamp(edgeTable[0].yStart, 0, CANVAS_HEIGHT-1)
-    lastY = clamp(edgeTable[-1].yEnd, 0, CANVAS_HEIGHT-1)
+    firstY = edgeTable[0].yStart
+    lastY = edgeTable[-1].yEnd
 
     # prepare indeces for scanning 
     i = 0
@@ -344,13 +352,36 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
     next = 2
 
     # prepare x and z vaues of the first line that will be painted 
-    edgeIX = clamp(edgeTable[i].xStart, 0, CANVAS_WIDTH-1)
-    edgeJX = clamp(edgeTable[j].xStart, 0, CANVAS_WIDTH-1)
+    edgeIX = edgeTable[i].xStart
+    edgeJX = edgeTable[j].xStart
     edgeIZ = edgeTable[i].zStart
     edgeJZ = edgeTable[j].zStart
 
     # do painting loop 
     for y in range(int(firstY), int(lastY)): 
+
+        # ensure stay on screen. update values and leave.
+        if y not in range(0, CANVAS_HEIGHT):
+
+            # update x and z values 
+            edgeIX += edgeTable[i].dX
+            edgeJX += edgeTable[j].dX
+            edgeIZ += edgeTable[i].dZ
+            edgeJZ += edgeTable[j].dZ
+
+            # reached the bottom of an edge, swap out
+            if y >= edgeTable[i].yEnd and y < lastY:
+                i = next
+                edgeIX = edgeTable[i].xStart
+                edgeIZ = edgeTable[i].zStart
+                next += 1
+            if y >= edgeTable[j].yEnd and y < lastY: 
+                j = next
+                edgeJX = edgeTable[j].xStart
+                edgeJZ = edgeTable[j].zStart
+                next += 1
+
+            continue
 
         # find the leftness 
         if edgeIX < edgeJX:
@@ -375,7 +406,10 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
 
         # paint the line 
         # includes a little extra code to make the lines nice 
-        for x in range(int(leftX), clamp(int(rightX)+1, 0, CANVAS_WIDTH)): # up to and including
+        for x in range(int(leftX), int(rightX)+1): # up to and including
+            if x not in range(0, CANVAS_WIDTH): # ensure stay on screen
+                z += dZFill
+                continue
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
                 if POLY_FILL:
                     drawPixel(window, x, y, polyColor)
@@ -430,7 +464,7 @@ def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
     for e in edges:
         entry = EdgeEntry(e)
 
-        # fill in all statically calculated data 
+        # fill in all statically calculated data - position and zbuf
         entry.xStart = e[0][0]
         entry.yStart = e[0][1]
         entry.yEnd = e[1][1]
@@ -438,10 +472,16 @@ def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
         entry.zStart = e[0][2]
         entry.dZ = (e[1][2] - e[0][2]) / (e[1][1] - e[0][1]) # the cooler run over rise
 
+        # fill in static data - flat shading
+        
+
         edgeTable.append(entry)
 
     return edgeTable
 
+def flat_shading(edgeTable: list[EdgeEntry], polyColor='#00FF00'):
+    
+    pass
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
@@ -616,6 +656,50 @@ def clamp(input, low, high):
         return high
     return input
 
+# 20 spheres calcs
+
+# illumination reflection vector R
+def reflect(N: RowVector, L: RowVector) -> RowVector:
+    R = []
+    N = N.normalize()
+    L = L.normalize()
+    twoCosPhi = 2 * (N.getElement(0, 0) * L.getElement(0, 0) + \
+                     N.getElement(1, 0) * L.getElement(1, 0) + \
+                     N.getElement(2, 0) * L.getElement(2, 0))
+    
+    if twoCosPhi > 0:
+        for i in range(3):
+            R.append(N.getElement(i, 0) - (L.getElement(i, 0) / twoCosPhi))
+    elif twoCosPhi == 0:
+        for i in range(3):
+            R.append(-L.getElement(i, 0))
+    else: 
+        for i in range(3):
+            R.append(-N.getElement(i, 0) + (L.getElement(i, 0) / twoCosPhi))
+
+    R = RowVector(R)
+
+    return R.normalize()
+
+# color manipulations 
+def triColorHex(ambient, diffuse, specular):
+    combinedColorCode = colorHexCode(ambient + diffuse + specular)
+    specularColorCode = colorHexCode(specular)
+    colorString = f'#{specularColorCode}{combinedColorCode}{specularColorCode}'
+    return colorString
+
+def colorHexCode(intensity):
+    hexString = str(hex(round(255 * intensity)))
+    if hexString[0] == '-': # can't be negative
+        print("Illumination is negative. Did you check for negative NdotL?")
+        trimmedHexStr = '00'
+    else:
+        trimmedHexStr = hexString[2:]
+        if len(trimmedHexStr) == 1:
+            trimmedHexStr = f'0{trimmedHexStr}'
+
+    return trimmedHexStr
+
 # a bunch of functions for keyboard controls.....
 # arrows for object selections
 # numbers for mode selections 
@@ -637,10 +721,15 @@ def onePressed(event) -> None:
     global selected_object
     global selected_object_group
     global w
+    global object_group1
+    global object_group2
     global POLY_FILL
     global DEFAULT_OUTLINE
     global BESPOKE_OUTLINE
+    global SHADING_STYLE
 
+    selected_object_group = object_group1
+    SHADING_STYLE = NO_SHADING
     POLY_FILL = False
     if DEFAULT_OUTLINE:
         BESPOKE_OUTLINE = False
@@ -654,10 +743,15 @@ def twoPressed(event) -> None:
     global selected_object
     global selected_object_group
     global w
+    global object_group1
+    global object_group2
     global POLY_FILL
     global DEFAULT_OUTLINE
     global BESPOKE_OUTLINE
+    global SHADING_STYLE
 
+    selected_object_group = object_group1
+    SHADING_STYLE = NO_SHADING
     POLY_FILL = True
     if DEFAULT_OUTLINE:
         BESPOKE_OUTLINE = False
@@ -671,16 +765,46 @@ def threePressed(event) -> None:
     global selected_object
     global selected_object_group
     global w
+    global object_group1
+    global object_group2
     global POLY_FILL
     global DEFAULT_OUTLINE
     global BESPOKE_OUTLINE
+    global SHADING_STYLE
 
+    selected_object_group = object_group1
+    SHADING_STYLE = NO_SHADING
     POLY_FILL = True
     DEFAULT_OUTLINE = False
     BESPOKE_OUTLINE = False
     drawAllObjects(w, selected_object_group)
 
 def fourPressed(event) -> None:
+    global selected_object
+    global selected_object_group
+    global w
+    global object_group1
+    global object_group2
+    global SHADING_STYLE
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    SHADING_STYLE = FLAT_SHADING
+    POLY_FILL = True
+    DEFAULT_OUTLINE = False
+    BESPOKE_OUTLINE = False
+    selected_object_group = object_group2
+    drawAllObjects(w, selected_object_group)
+
+def fivePressed(event) -> None:
+    pass
+
+def sixPressed(event) -> None:
+    pass
+
+# swap outline styles
+def sevenPressed(event) -> None:
     global selected_object
     global selected_object_group
     global w
@@ -691,6 +815,27 @@ def fourPressed(event) -> None:
     if DEFAULT_OUTLINE or BESPOKE_OUTLINE:
         DEFAULT_OUTLINE = not DEFAULT_OUTLINE
         BESPOKE_OUTLINE = not DEFAULT_OUTLINE
+    else:
+        DEFAULT_OUTLINE = True
+    drawAllObjects(w, selected_object_group)
+
+# swap to oct wireframe
+def eightPressed(event) -> None:
+    global selected_object
+    global selected_object_group
+    global w
+    global object_group1
+    global object_group2
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    selected_object_group = object_group2
+    POLY_FILL = False
+    if DEFAULT_OUTLINE:
+        BESPOKE_OUTLINE = False
+    elif BESPOKE_OUTLINE:
+        DEFAULT_OUTLINE = False
     else:
         DEFAULT_OUTLINE = True
     drawAllObjects(w, selected_object_group)
@@ -966,14 +1111,14 @@ if __name__ == "__main__":
     oct_poly_7 = [7, 15, 8, 0]
 
     oct_poly_8 = [0, 1, 2, 3, 4, 5, 6, 7]
-    oct_poly_9 = [8, 9, 10, 11, 12, 13, 14, 15]
+    oct_poly_9 = [15, 14, 13, 12, 11, 10, 9, 8]
 
     oct_polys = [oct_poly_0, oct_poly_1, oct_poly_2, oct_poly_3, oct_poly_4, \
                  oct_poly_5, oct_poly_6, oct_poly_7, oct_poly_8, oct_poly_9]
 
     # create the tetrahedron object from defined data
     Oct = Object(oct_polys, oct_points)
-    Oct.polyColor = ['white', '#cccccc', '#999999', '#666666', '#333333', 'black', 'red', 'green', 'blue', 'yellow']
+    Oct.polyColor = ['#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00']
 
     # give a default position away from the origin 
     setupObject(Oct, [0,0,0])
@@ -1000,6 +1145,10 @@ if __name__ == "__main__":
     root.bind("2", twoPressed)
     root.bind("3", threePressed)
     root.bind("4", fourPressed)
+    root.bind("5", fivePressed)
+    root.bind("6", sixPressed)
+    root.bind("7", sevenPressed)
+    root.bind("8", eightPressed)
 
     controlpanel = Frame(outerframe)
     controlpanel.pack()
