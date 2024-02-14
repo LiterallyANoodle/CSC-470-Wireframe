@@ -1,9 +1,9 @@
 #######################################################################################
 # Name: Matthew Mahan
 # SID: 103 85 109
-# Due Date: 2/1/2024
-# Assignment Number: 2
-# Desc: Program displays basic 3D shapes with backface culling, polygon filling, and z buffer. 
+# Due Date: 2/15/2024
+# Assignment Number: 3
+# Desc: Program displays basic 3D shapes with flat shading, gouraud shading, and phong shading. 
 #######################################################################################
 
 # ****NOTE: This framework defines a world with a single polygon: a pyramid ****
