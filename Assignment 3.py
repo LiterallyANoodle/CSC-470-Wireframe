@@ -184,9 +184,12 @@ class EdgeEntry:
 
     edgeVerts = None 
     
+    # general endpoints 
     xStart = None
     yStart = None
     yEnd = None 
+
+    # polyfill and zbuffer data 
     dX = None 
     zStart = None
     dZ = None
@@ -332,8 +335,8 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
         return
 
     # determine all the start and end Y values for the whole poly
-    firstY = edgeTable[0].yStart
-    lastY = edgeTable[-1].yEnd
+    firstY = clamp(edgeTable[0].yStart, 0, CANVAS_HEIGHT-1)
+    lastY = clamp(edgeTable[-1].yEnd, 0, CANVAS_HEIGHT-1)
 
     # prepare indeces for scanning 
     i = 0
@@ -341,8 +344,8 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
     next = 2
 
     # prepare x and z vaues of the first line that will be painted 
-    edgeIX = edgeTable[i].xStart
-    edgeJX = edgeTable[j].xStart
+    edgeIX = clamp(edgeTable[i].xStart, 0, CANVAS_WIDTH-1)
+    edgeJX = clamp(edgeTable[j].xStart, 0, CANVAS_WIDTH-1)
     edgeIZ = edgeTable[i].zStart
     edgeJZ = edgeTable[j].zStart
 
@@ -372,7 +375,7 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
 
         # paint the line 
         # includes a little extra code to make the lines nice 
-        for x in range(int(leftX), int(rightX)+1): # up to and including
+        for x in range(int(leftX), clamp(int(rightX)+1, 0, CANVAS_WIDTH)): # up to and including
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
                 if POLY_FILL:
                     drawPixel(window, x, y, polyColor)
@@ -559,13 +562,13 @@ def setDefaultPosition(object: Object, position: Vector3) -> None:
 # changes the selection, marked with red
 def selectObject(index=0) -> None:
     global selected_object
-    global object_group
+    global selected_object_group
 
     if selected_object == None:
-        selected_object = object_group[0]
+        selected_object = selected_object_group[0]
 
     selected_object.outlineColor = "black"
-    selected_object = object_group[index]
+    selected_object = selected_object_group[index]
     selected_object.outlineColor = "red"
 
 # resets everything and then draws the new frame
@@ -605,26 +608,34 @@ def polyIsVisible(object: Object, poly: Polygon) -> bool:
 
     return (vis > 0)
 
+# clamp values
+def clamp(input, low, high):
+    if input < low:
+        return low
+    if input > high:
+        return high
+    return input
+
 # a bunch of functions for keyboard controls.....
 # arrows for object selections
 # numbers for mode selections 
 def leftPressed(event) -> None:
     global selected_object
-    global object_group
+    global selected_object_group
     global w 
-    selectObject((object_group.index(selected_object) - 1) % len(object_group))
-    drawAllObjects(w, object_group)
+    selectObject((selected_object_group.index(selected_object) - 1) % len(selected_object_group))
+    drawAllObjects(w, selected_object_group)
 
 def rightPressed(event) -> None:
     global selected_object
-    global object_group
+    global selected_object_group
     global w
-    selectObject((object_group.index(selected_object) + 1) % len(object_group))
-    drawAllObjects(w, object_group)
+    selectObject((selected_object_group.index(selected_object) + 1) % len(selected_object_group))
+    drawAllObjects(w, selected_object_group)
 
 def onePressed(event) -> None:
     global selected_object
-    global object_group
+    global selected_object_group
     global w
     global POLY_FILL
     global DEFAULT_OUTLINE
@@ -637,11 +648,11 @@ def onePressed(event) -> None:
         DEFAULT_OUTLINE = False
     else:
         DEFAULT_OUTLINE = True
-    drawAllObjects(w, object_group)
+    drawAllObjects(w, selected_object_group)
 
 def twoPressed(event) -> None:
     global selected_object
-    global object_group
+    global selected_object_group
     global w
     global POLY_FILL
     global DEFAULT_OUTLINE
@@ -654,11 +665,11 @@ def twoPressed(event) -> None:
         DEFAULT_OUTLINE = False
     else:
         DEFAULT_OUTLINE = True
-    drawAllObjects(w, object_group)
+    drawAllObjects(w, selected_object_group)
 
 def threePressed(event) -> None:
     global selected_object
-    global object_group
+    global selected_object_group
     global w
     global POLY_FILL
     global DEFAULT_OUTLINE
@@ -667,11 +678,11 @@ def threePressed(event) -> None:
     POLY_FILL = True
     DEFAULT_OUTLINE = False
     BESPOKE_OUTLINE = False
-    drawAllObjects(w, object_group)
+    drawAllObjects(w, selected_object_group)
 
 def fourPressed(event) -> None:
     global selected_object
-    global object_group
+    global selected_object_group
     global w
     global POLY_FILL
     global DEFAULT_OUTLINE
@@ -682,107 +693,107 @@ def fourPressed(event) -> None:
         BESPOKE_OUTLINE = not DEFAULT_OUTLINE
     else:
         DEFAULT_OUTLINE = True
-    drawAllObjects(w, object_group)
+    drawAllObjects(w, selected_object_group)
 
 
 # **************************************************************************
 # Everything below this point implements the interface
 def reset(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
-    for obj in object_group:
+    for obj in selected_object_group:
         resetObject(obj)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def setPosition(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     setDefaultPosition(object, object.anchorPoint)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def larger(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     scale(object, 1.1)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def smaller(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     scale(object, .9)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def forward(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     translate(object, [0,0,5])
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def backward(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     translate(object, [0,0,-5])
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def left(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     translate(object, [-5,0,0])
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def right(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     translate(object, [5,0,0])
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def up(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     translate(object, [0,5,0])
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def down(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     translate(object, [0,-5,0])
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def xPlus(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     rotateX(object, 5)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def xMinus(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     rotateX(object, -5)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def yPlus(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     rotateY(object, 5)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def yMinus(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     rotateY(object, -5)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def zPlus(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     rotateZ(object, 5)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 def zMinus(window, object):
-    global object_group
+    global selected_object_group
     window.delete(ALL)
     rotateZ(object, -5)
-    drawAllObjects(window, object_group)
+    drawAllObjects(window, selected_object_group)
 
 if __name__ == "__main__":
 
@@ -920,17 +931,66 @@ if __name__ == "__main__":
     # give a default position away from the origin 
     setupObject(TestPoly1, [0,0,0])
 
+    # ***************************** Initialize Oct Object ***************************
+    # Definition  of the five underlying points
+    oct_front_0 = [-50.0, 120.7107, 50.0]
+    oct_front_1 = [50.0, 120.7107, 50.0]
+    oct_front_2 = [120.7107, 50.0, 50.0]
+    oct_front_3 = [120.7107, -50.0, 50.0]
+    oct_front_4 = [50.0, -120.7107, 50.0]
+    oct_front_5 = [-50.0, -120.7107, 50.0]
+    oct_front_6 = [-120.7107, -50.0, 50.0]
+    oct_front_7 = [-120.7107, 50.0, 50.0]
+
+    oct_back_0 = [-50.0, 120.7107, 450.0]
+    oct_back_1 = [50.0, 120.7107, 450.0]
+    oct_back_2 = [120.7107, 50.0, 450.0]
+    oct_back_3 = [120.7107, -50.0, 450.0]
+    oct_back_4 = [50.0, -120.7107, 450.0]
+    oct_back_5 = [-50.0, -120.7107, 450.0]
+    oct_back_6 = [-120.7107, -50.0, 450.0]
+    oct_back_7 = [-120.7107, 50.0, 450.0]
+
+    oct_points = [oct_front_0, oct_front_1, oct_front_2, oct_front_3, oct_front_4, oct_front_5, oct_front_6, oct_front_7, \
+                  oct_back_0, oct_back_1, oct_back_2, oct_back_3, oct_back_4, oct_back_5, oct_back_6, oct_back_7]
+
+    # Definition of the five polygon faces using the meaningful point names
+    # Polys are defined in clockwise order when viewed from the outside
+    oct_poly_0 = [0, 8, 9, 1]
+    oct_poly_1 = [1, 9, 10, 2]
+    oct_poly_2 = [2, 10, 11, 3]
+    oct_poly_3 = [3, 11, 12, 4]
+    oct_poly_4 = [4, 12, 13, 5]
+    oct_poly_5 = [5, 13, 14, 6]
+    oct_poly_6 = [6, 14, 15, 7]
+    oct_poly_7 = [7, 15, 8, 0]
+
+    oct_poly_8 = [0, 1, 2, 3, 4, 5, 6, 7]
+    oct_poly_9 = [8, 9, 10, 11, 12, 13, 14, 15]
+
+    oct_polys = [oct_poly_0, oct_poly_1, oct_poly_2, oct_poly_3, oct_poly_4, \
+                 oct_poly_5, oct_poly_6, oct_poly_7, oct_poly_8, oct_poly_9]
+
+    # create the tetrahedron object from defined data
+    Oct = Object(oct_polys, oct_points)
+    Oct.polyColor = ['white', '#cccccc', '#999999', '#666666', '#333333', 'black', 'red', 'green', 'blue', 'yellow']
+
+    # give a default position away from the origin 
+    setupObject(Oct, [0,0,0])
+
     # ***************************** begin main instrucions *****************************
     root = Tk()
     outerframe = Frame(root)
     outerframe.pack()
 
-    object_group = [Tetrahedron1, Pyramid1, Cube1, Cube2]
+    object_group1 = [Tetrahedron1, Pyramid1, Cube1, Cube2]
+    object_group2 = [Oct]
+    selected_object_group = object_group2
     selected_object = None
     selectObject() # by default selects the 0th object to start
 
     w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg="white")
-    drawAllObjects(w, object_group)
+    drawAllObjects(w, selected_object_group)
     w.pack()
 
     # keyboard input 
