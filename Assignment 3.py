@@ -480,8 +480,8 @@ def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
     return edgeTable
 
 def flat_shading(edgeTable: list[EdgeEntry], polyColor='#00FF00'):
-    
     pass
+    
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
 # Convert the projected endpoints to display coordinates via a call to 'convertToDisplayCoordinates'
@@ -681,14 +681,41 @@ def reflect(N: RowVector, L: RowVector) -> RowVector:
 
     return R.normalize()
 
+# phong illumination from notes (render sphere)
+def phong_illuminate_color(Kd: float, Ks: float, specIndex: float, Ia: float, Ip: float, L: RowVector, V: RowVector, N: RowVector) -> str:
+    
+    # Normalize incoming vectors 
+    L = L.normalize()
+    V = V.normalize()
+    N = N.normalize()
+
+    ambient = Ia * Kd 
+
+    NdotL = N.dot(L)
+
+    if NdotL < 0:
+        NdotL = 0
+
+    diffuse = Ip * Kd * NdotL
+    R = reflect(N, L)
+    RdotV = R.dot(V)
+
+    if RdotV < 0:
+        RdotV = 0
+
+    specular = Ip * Ks * (RdotV ** specIndex)
+    color = triColorHex(ambient, diffuse, specular)
+
+    return color
+
 # color manipulations 
-def triColorHex(ambient, diffuse, specular):
+def triColorHex(ambient, diffuse, specular) -> str:
     combinedColorCode = colorHexCode(ambient + diffuse + specular)
     specularColorCode = colorHexCode(specular)
     colorString = f'#{specularColorCode}{combinedColorCode}{specularColorCode}'
     return colorString
 
-def colorHexCode(intensity):
+def colorHexCode(intensity) -> str:
     hexString = str(hex(round(255 * intensity)))
     if hexString[0] == '-': # can't be negative
         print("Illumination is negative. Did you check for negative NdotL?")
