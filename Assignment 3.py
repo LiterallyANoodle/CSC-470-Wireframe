@@ -222,7 +222,13 @@ class EdgeEntry:
     zStart = None
     dZ = None
 
-    # flat shading
+    # gauroud shading
+    gAStart = None
+    gDStart = None
+    gSStart = None
+    gdA = None
+    gdD = None 
+    gdS = None
 
     # these fields will be filled out as they are calculated 
     def __init__(this, edgeName) -> None:
@@ -323,7 +329,9 @@ def rotateX(object: Object, degrees: float) -> None:
 # A poly is basically just an object with a single side anyway. 
 def drawObject(window, object: Object, zBuffer: Matrix) -> None:
   
-    for poly in object.polygons:
+    for polyIndex in range(len(object.polygons)):
+
+        poly = object.polygons[polyIndex]
 
         # check visibility (backface culling)
         if not polyIsVisible(object, poly):
@@ -356,7 +364,7 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
         N = P.cross(Q).normalize()
 
         # calculate flat shading once for this poly
-        if SHADING_STYLE == FLAT_SHADING:
+        if SHADING_STYLE == FLAT_SHADING or object.shadingOverride[polyIndex] == FLAT_SHADING:
             L = RowVector(L_LIST).normalize()
             V = RowVector(V_LIST).normalize()
             phong_intensity = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
@@ -366,9 +374,9 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
             # fill in this polygon
             colorIndex = object.polygons.index(poly)
             use_color = object.polyColor[colorIndex]
-            if SHADING_STYLE == FLAT_SHADING:
+            if SHADING_STYLE == FLAT_SHADING or object.shadingOverride[polyIndex] == FLAT_SHADING:
                 use_color = phong_color
-            polyFill(window, points_projected_display, zBuffer, object, poly, N, use_color, object.outlineColor)
+            polyFill(window, points_projected_display, zBuffer, object, poly, N, polyIndex, use_color, object.outlineColor)
     
         # make and draw each pair of points in order --> OUTLINE from tkinter
         if DEFAULT_OUTLINE:
@@ -378,7 +386,7 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
 
 # Fill in polygons function
 # points come into the function pre-projected as proj
-def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly: Polygon, surfN, polyColor='blue', objColor='black') -> None:
+def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly: Polygon, surfN: RowVector, polyIndex: int, polyColor='blue', objColor='black') -> None:
 
     # create edge table 
     edgeTable = computeEdgeTable(proj, object, poly, surfN)
@@ -400,6 +408,13 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
     edgeJX = edgeTable[j].xStart
     edgeIZ = edgeTable[i].zStart
     edgeJZ = edgeTable[j].zStart
+    # gouraud 
+    edgeIGA = edgeTable[i].gAStart
+    edgeJGA = edgeTable[j].gAStart
+    edgeIGD = edgeTable[i].gDStart
+    edgeJGD = edgeTable[j].gDStart
+    edgeIGS = edgeTable[i].gSStart
+    edgeJGS = edgeTable[j].gSStart
 
     # do painting loop 
     for y in range(int(firstY), int(lastY)): 
@@ -412,17 +427,32 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             edgeJX += edgeTable[j].dX
             edgeIZ += edgeTable[i].dZ
             edgeJZ += edgeTable[j].dZ
+            # gouraud 
+            edgeIGA += edgeTable[i].gdA
+            edgeJGA += edgeTable[j].gdA
+            edgeIGD += edgeTable[i].gdD
+            edgeJGD += edgeTable[j].gdD
+            edgeIGS += edgeTable[i].gdS
+            edgeJGS += edgeTable[j].gdS
 
             # reached the bottom of an edge, swap out
             if y >= edgeTable[i].yEnd and y < lastY:
                 i = next
                 edgeIX = edgeTable[i].xStart
                 edgeIZ = edgeTable[i].zStart
+                # gouraud
+                edgeIGA = edgeTable[i].gAStart
+                edgeIGD = edgeTable[i].gDStart
+                edgeIGS = edgeTable[i].gSStart
                 next += 1
             if y >= edgeTable[j].yEnd and y < lastY: 
                 j = next
                 edgeJX = edgeTable[j].xStart
                 edgeJZ = edgeTable[j].zStart
+                # gouraud 
+                edgeJGA = edgeTable[j].gAStart
+                edgeJGD = edgeTable[j].gDStart
+                edgeJGS = edgeTable[j].gSStart
                 next += 1
 
             continue
@@ -433,14 +463,32 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             rightX = edgeJX
             leftZ = edgeIZ
             rightZ = edgeJZ
+            # gouraud
+            leftGA = edgeIGA
+            rightGA = edgeJGA
+            leftGD = edgeIGD
+            rightGD = edgeJGD
+            leftGS = edgeIGS
+            rightGS = edgeJGS
         else: 
             leftX = edgeJX
             rightX = edgeIX
             leftZ = edgeJZ
             rightZ = edgeIZ
+            # gouraud 
+            leftGA = edgeJGA
+            rightGA = edgeIGA
+            leftGD = edgeJGD
+            rightGD = edgeIGD
+            leftGS = edgeJGS
+            rightGS = edgeIGS
 
         # initial z 
         z = leftZ
+        # initial gouraud intensity 
+        GA = leftGA
+        GD = leftGD
+        GS = leftGS
 
         # compute dZ for this fill line
         if rightZ - leftZ != 0:
@@ -448,37 +496,77 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
         else:
             dZFill = 0
 
+        # compute gouraud ambient for this fill line 
+        if rightGA - leftGA != 0:
+            dGAFill = (rightGA - leftGA) / (rightX - leftX)
+        else:
+            dGAFill = 0
+        # compute gouraud diffuse for this fill line 
+        if rightGD - leftGD != 0:
+            dGDFill = (rightGD - leftGD) / (rightX - leftX)
+        else:
+            dGDFill = 0
+        # compute gouraud specular for this fill line 
+        if rightGS - leftGS != 0:
+            dGSFill = (rightGS - leftGS) / (rightX - leftX)
+        else:
+            dGSFill = 0
+
         # paint the line 
         # includes a little extra code to make the lines nice 
         for x in range(int(leftX), int(rightX)+1): # up to and including
             if x not in range(0, CANVAS_WIDTH): # ensure stay on screen
                 z += dZFill
+                GA += dGAFill
+                GD += dGDFill
+                GS += dGSFill
                 continue
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
                 if POLY_FILL:
-                    drawPixel(window, x, y, polyColor)
+                    use_color = polyColor
+                    if SHADING_STYLE == GOURAUD_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING:
+                        use_color = triColorHex(GA, GD, GS)
+                    drawPixel(window, x, y, use_color)
                 if BESPOKE_OUTLINE:
                     if (x == int(leftX) or x == int(rightX) or y == int(firstY) or y == int(lastY)):
                         drawPixel(window, x, y, objColor)          
                 zBuffer.setElement(x, y, z)
             z += dZFill
+            GA += dGAFill
+            GD += dGDFill
+            GS += dGSFill
 
         # update x and z values 
         edgeIX += edgeTable[i].dX
         edgeJX += edgeTable[j].dX
         edgeIZ += edgeTable[i].dZ
         edgeJZ += edgeTable[j].dZ
+        # gouraud 
+        edgeIGA += edgeTable[i].gdA
+        edgeJGA += edgeTable[j].gdA
+        edgeIGD += edgeTable[i].gdD
+        edgeJGD += edgeTable[j].gdD
+        edgeIGS += edgeTable[i].gdS
+        edgeJGS += edgeTable[j].gdS
 
         # reached the bottom of an edge, swap out
         if y >= edgeTable[i].yEnd and y < lastY:
             i = next
             edgeIX = edgeTable[i].xStart
             edgeIZ = edgeTable[i].zStart
+            # gouraud
+            edgeIGA = edgeTable[i].gAStart
+            edgeIGD = edgeTable[i].gDStart
+            edgeIGS = edgeTable[i].gSStart
             next += 1
         if y >= edgeTable[j].yEnd and y < lastY: 
             j = next
             edgeJX = edgeTable[j].xStart
             edgeJZ = edgeTable[j].zStart
+            # gouraud 
+            edgeJGA = edgeTable[j].gAStart
+            edgeJGD = edgeTable[j].gDStart
+            edgeJGS = edgeTable[j].gSStart
             next += 1
 
 # helper to get the edge table constants
@@ -547,8 +635,14 @@ def computeEdgeTable(verts: list[Vector3], object: Object, poly: Polygon, surfN:
         entry.dZ = (e[1][2] - e[0][2]) / (e[1][1] - e[0][1]) # the cooler run over rise
 
         # fill in static data - gouraud shading
-        entry.iStart = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
-        entry.dI = (phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N) - entry.iStart) / (e[1][1] - e[0][1])
+        vert0_ambient, vert0_diffuse, vert0_specular = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, vert0_normal)
+        vert1_ambient, vert1_diffuse, vert1_specular = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, vert1_normal)
+        entry.gAStart = vert0_ambient
+        entry.gDStart = vert0_diffuse
+        entry.gSStart = vert0_specular
+        entry.gdA = ((vert1_ambient) - entry.gAStart) / (e[1][1] - e[0][1])
+        entry.gdD = ((vert1_diffuse) - entry.gDStart) / (e[1][1] - e[0][1])
+        entry.gdS = ((vert1_specular) - entry.gSStart) / (e[1][1] - e[0][1])
 
         edgeTable.append(entry)
 
@@ -907,7 +1001,22 @@ def fourPressed(event) -> None:
     drawAllObjects(w, selected_object_group)
 
 def fivePressed(event) -> None:
-    pass
+    global selected_object
+    global selected_object_group
+    global w
+    global object_group1
+    global object_group2
+    global SHADING_STYLE
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    SHADING_STYLE = GOURAUD_SHADING
+    POLY_FILL = True
+    DEFAULT_OUTLINE = False
+    BESPOKE_OUTLINE = False
+    selected_object_group = object_group2
+    drawAllObjects(w, selected_object_group)
 
 def sixPressed(event) -> None:
     pass
