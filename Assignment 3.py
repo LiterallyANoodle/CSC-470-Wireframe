@@ -18,8 +18,8 @@ CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
 
-PHONG_KD = 0.5
-PHONG_KS = 0.5
+ILLUMINATION_KD = 0.5
+ILLUMINATION_KS = 0.5
 SPEC_IND = 7.0
 AMBIENT_INT = 0.4
 DIFFUSE_INT = 0.7
@@ -372,17 +372,17 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
         N = P.cross(Q).normalize()
 
         # calculate flat shading once for this poly
-        if SHADING_STYLE == FLAT_SHADING or object.shadingOverride[polyIndex] == FLAT_SHADING:
+        if SHADING_STYLE != NO_SHADING and (SHADING_STYLE == FLAT_SHADING or object.shadingOverride[polyIndex] == FLAT_SHADING):
             L = RowVector(L_LIST).normalize()
             V = RowVector(V_LIST).normalize()
-            phong_intensity = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
+            phong_intensity = phong_illuminate(ILLUMINATION_KD, ILLUMINATION_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
             phong_color = triColorHex(phong_intensity[0], phong_intensity[1], phong_intensity[2])
 
         if POLY_FILL or BESPOKE_OUTLINE:
             # fill in this polygon
             colorIndex = object.polygons.index(poly)
             use_color = object.polyColor[colorIndex]
-            if SHADING_STYLE == FLAT_SHADING or object.shadingOverride[polyIndex] == FLAT_SHADING:
+            if SHADING_STYLE != NO_SHADING and (SHADING_STYLE == FLAT_SHADING or object.shadingOverride[polyIndex] == FLAT_SHADING):
                 use_color = phong_color
             polyFill(window, points_projected_display, zBuffer, object, poly, N, polyIndex, use_color, object.outlineColor)
     
@@ -442,6 +442,195 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             edgeJX += edgeTable[j].dX
             edgeIZ += edgeTable[i].dZ
             edgeJZ += edgeTable[j].dZ
+            if SHADING_STYLE != NO_SHADING:
+                # gouraud 
+                edgeIGA += edgeTable[i].gdA
+                edgeJGA += edgeTable[j].gdA
+                edgeIGD += edgeTable[i].gdD
+                edgeJGD += edgeTable[j].gdD
+                edgeIGS += edgeTable[i].gdS
+                edgeJGS += edgeTable[j].gdS
+                # phong 
+                edgeIPX += edgeTable[i].pdX
+                edgeJPX += edgeTable[j].pdX
+                edgeIPY += edgeTable[i].pdY
+                edgeJPY += edgeTable[j].pdY
+                edgeIPZ += edgeTable[i].pdZ
+                edgeJPZ += edgeTable[j].pdZ
+
+            # reached the bottom of an edge, swap out
+            if y >= edgeTable[i].yEnd and y < lastY:
+                i = next
+                edgeIX = edgeTable[i].xStart
+                edgeIZ = edgeTable[i].zStart
+                if SHADING_STYLE != NO_SHADING:
+                    # gouraud
+                    edgeIGA = edgeTable[i].gAStart
+                    edgeIGD = edgeTable[i].gDStart
+                    edgeIGS = edgeTable[i].gSStart
+                    # phong
+                    edgeIPX = edgeTable[i].pXStart
+                    edgeIPY = edgeTable[i].pYStart
+                    edgeIPZ = edgeTable[i].pZStart
+                next += 1
+            if y >= edgeTable[j].yEnd and y < lastY: 
+                j = next
+                edgeJX = edgeTable[j].xStart
+                edgeJZ = edgeTable[j].zStart
+                if SHADING_STYLE != NO_SHADING:
+                    # gouraud 
+                    edgeJGA = edgeTable[j].gAStart
+                    edgeJGD = edgeTable[j].gDStart
+                    edgeJGS = edgeTable[j].gSStart
+                    # phong 
+                    edgeJPX = edgeTable[j].pXStart
+                    edgeJPY = edgeTable[j].pYStart
+                    edgeJPZ = edgeTable[j].pZStart
+                next += 1
+
+            continue
+
+        # find the leftness 
+        if edgeIX < edgeJX:
+            leftX = edgeIX
+            rightX = edgeJX
+            leftZ = edgeIZ
+            rightZ = edgeJZ
+            if SHADING_STYLE != NO_SHADING:
+                # gouraud
+                leftGA = edgeIGA
+                rightGA = edgeJGA
+                leftGD = edgeIGD
+                rightGD = edgeJGD
+                leftGS = edgeIGS
+                rightGS = edgeJGS
+                # phong 
+                leftPX = edgeIPX
+                rightPX = edgeJPX
+                leftPY = edgeIPY
+                rightPY = edgeJPY
+                leftPZ = edgeIPZ
+                rightPZ = edgeJPZ
+        else: 
+            leftX = edgeJX
+            rightX = edgeIX
+            leftZ = edgeJZ
+            rightZ = edgeIZ
+            if SHADING_STYLE != NO_SHADING:
+                # gouraud 
+                leftGA = edgeJGA
+                rightGA = edgeIGA
+                leftGD = edgeJGD
+                rightGD = edgeIGD
+                leftGS = edgeJGS
+                rightGS = edgeIGS
+                # phong 
+                leftPX = edgeJPX
+                rightPX = edgeIPX
+                leftPY = edgeJPY
+                rightPY = edgeIPY
+                leftPZ = edgeJPZ
+                rightPZ = edgeIPZ
+
+        # initial z 
+        z = leftZ
+        if SHADING_STYLE != NO_SHADING:
+            # initial gouraud intensity 
+            GA = leftGA
+            GD = leftGD
+            GS = leftGS
+            # inital phong normal
+            PX = leftPX
+            PY = leftPY
+            PZ = leftPZ
+
+        # compute dZ for this fill line
+        if rightZ - leftZ != 0:
+            dZFill = (rightZ - leftZ) / (rightX - leftX)
+        else:
+            dZFill = 0
+
+        if SHADING_STYLE != NO_SHADING:
+            # compute gouraud ambient for this fill line 
+            if rightGA - leftGA != 0:
+                dGAFill = (rightGA - leftGA) / (rightX - leftX)
+            else:
+                dGAFill = 0
+            # compute gouraud diffuse for this fill line 
+            if rightGD - leftGD != 0:
+                dGDFill = (rightGD - leftGD) / (rightX - leftX)
+            else:
+                dGDFill = 0
+            # compute gouraud specular for this fill line 
+            if rightGS - leftGS != 0:
+                dGSFill = (rightGS - leftGS) / (rightX - leftX)
+            else:
+                dGSFill = 0
+
+            # compute phong X component for this fill line
+            if rightPX - leftPX != 0:
+                dPXFill = (rightPX - leftPX) / (rightX - leftX)
+            else:
+                dPXFill = 0
+            # compute phong Y component for this fill line
+            if rightPY - leftPY != 0:
+                dPYFill = (rightPY - leftPY) / (rightX - leftX)
+            else:
+                dPYFill = 0
+            # compute phong Z component for this fill line
+            if rightPZ - leftPZ != 0:
+                dPZFill = (rightPZ - leftPZ) / (rightX - leftX)
+            else:
+                dPZFill = 0
+
+        # paint the line 
+        # includes a little extra code to make the lines nice 
+        for x in range(int(leftX), int(rightX)+1): # up to and including
+            if x not in range(0, CANVAS_WIDTH): # ensure stay on screen
+                z += dZFill
+                if SHADING_STYLE != NO_SHADING:
+                    GA += dGAFill
+                    GD += dGDFill
+                    GS += dGSFill
+                    PX += dPXFill
+                    PY += dPYFill
+                    PZ += dPZFill
+                continue
+
+            if zBuffer.getElement(x, y) > z: # Z Buffer Check
+                if POLY_FILL:
+                    use_color = polyColor
+                    if SHADING_STYLE == GOURAUD_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING: # gouraud check
+                        use_color = triColorHex(GA, GD, GS)
+                    if SHADING_STYLE == PHONG_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING:
+                        L = RowVector(L_LIST).normalize()
+                        V = RowVector(V_LIST).normalize()
+                        N = RowVector([PX, PY, PZ]).normalize()
+                        phong_ambient, phong_diffuse, phong_specular = phong_illuminate(ILLUMINATION_KD, ILLUMINATION_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
+                        use_color = triColorHex(phong_ambient, phong_diffuse, phong_specular)
+                    drawPixel(window, x, y, use_color)
+
+                if BESPOKE_OUTLINE:
+                    if (x == int(leftX) or x == int(rightX) or y == int(firstY) or y == int(lastY)):
+                        drawPixel(window, x, y, objColor)          
+
+                zBuffer.setElement(x, y, z)
+
+            z += dZFill
+            if SHADING_STYLE != NO_SHADING:
+                GA += dGAFill
+                GD += dGDFill
+                GS += dGSFill
+                PX += dPXFill
+                PY += dPYFill
+                PZ += dPZFill
+
+        # update x and z values 
+        edgeIX += edgeTable[i].dX
+        edgeJX += edgeTable[j].dX
+        edgeIZ += edgeTable[i].dZ
+        edgeJZ += edgeTable[j].dZ
+        if SHADING_STYLE != NO_SHADING:
             # gouraud 
             edgeIGA += edgeTable[i].gdA
             edgeJGA += edgeTable[j].gdA
@@ -457,11 +646,12 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             edgeIPZ += edgeTable[i].pdZ
             edgeJPZ += edgeTable[j].pdZ
 
-            # reached the bottom of an edge, swap out
-            if y >= edgeTable[i].yEnd and y < lastY:
-                i = next
-                edgeIX = edgeTable[i].xStart
-                edgeIZ = edgeTable[i].zStart
+        # reached the bottom of an edge, swap out
+        if y >= edgeTable[i].yEnd and y < lastY:
+            i = next
+            edgeIX = edgeTable[i].xStart
+            edgeIZ = edgeTable[i].zStart
+            if SHADING_STYLE != NO_SHADING:
                 # gouraud
                 edgeIGA = edgeTable[i].gAStart
                 edgeIGD = edgeTable[i].gDStart
@@ -470,11 +660,12 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
                 edgeIPX = edgeTable[i].pXStart
                 edgeIPY = edgeTable[i].pYStart
                 edgeIPZ = edgeTable[i].pZStart
-                next += 1
-            if y >= edgeTable[j].yEnd and y < lastY: 
-                j = next
-                edgeJX = edgeTable[j].xStart
-                edgeJZ = edgeTable[j].zStart
+            next += 1
+        if y >= edgeTable[j].yEnd and y < lastY: 
+            j = next
+            edgeJX = edgeTable[j].xStart
+            edgeJZ = edgeTable[j].zStart
+            if SHADING_STYLE != NO_SHADING:
                 # gouraud 
                 edgeJGA = edgeTable[j].gAStart
                 edgeJGD = edgeTable[j].gDStart
@@ -483,185 +674,6 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
                 edgeJPX = edgeTable[j].pXStart
                 edgeJPY = edgeTable[j].pYStart
                 edgeJPZ = edgeTable[j].pZStart
-                next += 1
-
-            continue
-
-        # find the leftness 
-        if edgeIX < edgeJX:
-            leftX = edgeIX
-            rightX = edgeJX
-            leftZ = edgeIZ
-            rightZ = edgeJZ
-            # gouraud
-            leftGA = edgeIGA
-            rightGA = edgeJGA
-            leftGD = edgeIGD
-            rightGD = edgeJGD
-            leftGS = edgeIGS
-            rightGS = edgeJGS
-            # phong 
-            leftPX = edgeIPX
-            rightPX = edgeJPX
-            leftPY = edgeIPY
-            rightPY = edgeJPY
-            leftPZ = edgeIPZ
-            rightPZ = edgeJPZ
-        else: 
-            leftX = edgeJX
-            rightX = edgeIX
-            leftZ = edgeJZ
-            rightZ = edgeIZ
-            # gouraud 
-            leftGA = edgeJGA
-            rightGA = edgeIGA
-            leftGD = edgeJGD
-            rightGD = edgeIGD
-            leftGS = edgeJGS
-            rightGS = edgeIGS
-            # phong 
-            leftPX = edgeJPX
-            rightPX = edgeIPX
-            leftPY = edgeJPY
-            rightPY = edgeIPY
-            leftPZ = edgeJPZ
-            rightPZ = edgeIPZ
-
-        # initial z 
-        z = leftZ
-        # initial gouraud intensity 
-        GA = leftGA
-        GD = leftGD
-        GS = leftGS
-        # inital phong normal
-        PX = leftPX
-        PY = leftPY
-        PZ = leftPZ
-
-        # compute dZ for this fill line
-        if rightZ - leftZ != 0:
-            dZFill = (rightZ - leftZ) / (rightX - leftX)
-        else:
-            dZFill = 0
-
-        # compute gouraud ambient for this fill line 
-        if rightGA - leftGA != 0:
-            dGAFill = (rightGA - leftGA) / (rightX - leftX)
-        else:
-            dGAFill = 0
-        # compute gouraud diffuse for this fill line 
-        if rightGD - leftGD != 0:
-            dGDFill = (rightGD - leftGD) / (rightX - leftX)
-        else:
-            dGDFill = 0
-        # compute gouraud specular for this fill line 
-        if rightGS - leftGS != 0:
-            dGSFill = (rightGS - leftGS) / (rightX - leftX)
-        else:
-            dGSFill = 0
-
-        # compute phong X component for this fill line
-        if rightPX - leftPX != 0:
-            dPXFill = (rightPX - leftPX) / (rightX - leftX)
-        else:
-            dPXFill = 0
-        # compute phong Y component for this fill line
-        if rightPY - leftPY != 0:
-            dPYFill = (rightPY - leftPY) / (rightX - leftX)
-        else:
-            dPYFill = 0
-        # compute phong Z component for this fill line
-        if rightPZ - leftPZ != 0:
-            dPZFill = (rightPZ - leftPZ) / (rightX - leftX)
-        else:
-            dPZFill = 0
-
-        # paint the line 
-        # includes a little extra code to make the lines nice 
-        for x in range(int(leftX), int(rightX)+1): # up to and including
-            if x not in range(0, CANVAS_WIDTH): # ensure stay on screen
-                z += dZFill
-                GA += dGAFill
-                GD += dGDFill
-                GS += dGSFill
-                PX += dPXFill
-                PY += dPYFill
-                PZ += dPZFill
-                continue
-
-            if zBuffer.getElement(x, y) > z: # Z Buffer Check
-                if POLY_FILL:
-                    use_color = polyColor
-                    if SHADING_STYLE == GOURAUD_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING: # gouraud check
-                        use_color = triColorHex(GA, GD, GS)
-                    if SHADING_STYLE == PHONG_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING:
-                        L = RowVector(L_LIST).normalize()
-                        V = RowVector(V_LIST).normalize()
-                        N = RowVector([PX, PY, PZ]).normalize()
-                        phong_ambient, phong_diffuse, phong_specular = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
-                        use_color = triColorHex(phong_ambient, phong_diffuse, phong_specular)
-                    drawPixel(window, x, y, use_color)
-
-                if BESPOKE_OUTLINE:
-                    if (x == int(leftX) or x == int(rightX) or y == int(firstY) or y == int(lastY)):
-                        drawPixel(window, x, y, objColor)          
-
-                zBuffer.setElement(x, y, z)
-
-            z += dZFill
-            GA += dGAFill
-            GD += dGDFill
-            GS += dGSFill
-            PX += dPXFill
-            PY += dPYFill
-            PZ += dPZFill
-
-        # update x and z values 
-        edgeIX += edgeTable[i].dX
-        edgeJX += edgeTable[j].dX
-        edgeIZ += edgeTable[i].dZ
-        edgeJZ += edgeTable[j].dZ
-        # gouraud 
-        edgeIGA += edgeTable[i].gdA
-        edgeJGA += edgeTable[j].gdA
-        edgeIGD += edgeTable[i].gdD
-        edgeJGD += edgeTable[j].gdD
-        edgeIGS += edgeTable[i].gdS
-        edgeJGS += edgeTable[j].gdS
-        # phong 
-        edgeIPX += edgeTable[i].pdX
-        edgeJPX += edgeTable[j].pdX
-        edgeIPY += edgeTable[i].pdY
-        edgeJPY += edgeTable[j].pdY
-        edgeIPZ += edgeTable[i].pdZ
-        edgeJPZ += edgeTable[j].pdZ
-
-        # reached the bottom of an edge, swap out
-        if y >= edgeTable[i].yEnd and y < lastY:
-            i = next
-            edgeIX = edgeTable[i].xStart
-            edgeIZ = edgeTable[i].zStart
-            # gouraud
-            edgeIGA = edgeTable[i].gAStart
-            edgeIGD = edgeTable[i].gDStart
-            edgeIGS = edgeTable[i].gSStart
-            # phong
-            edgeIPX = edgeTable[i].pXStart
-            edgeIPY = edgeTable[i].pYStart
-            edgeIPZ = edgeTable[i].pZStart
-            next += 1
-        if y >= edgeTable[j].yEnd and y < lastY: 
-            j = next
-            edgeJX = edgeTable[j].xStart
-            edgeJZ = edgeTable[j].zStart
-            # gouraud 
-            edgeJGA = edgeTable[j].gAStart
-            edgeJGD = edgeTable[j].gDStart
-            edgeJGS = edgeTable[j].gSStart
-            # phong 
-            edgeJPX = edgeTable[j].pXStart
-            edgeJPY = edgeTable[j].pYStart
-            edgeJPZ = edgeTable[j].pZStart
             next += 1
 
 # helper to get the edge table constants
@@ -691,35 +703,36 @@ def computeEdgeTable(verts: list[Vector3], object: Object, poly: Polygon, surfN:
     for e in edges:
         entry = EdgeEntry(e)
 
-        projCloud = projectToDisplayCoordinates(project(object.pointCloud, CAMERA_Z_OFFSET), CANVAS_WIDTH, CANVAS_HEIGHT) 
-        roundProjCloud = roundVectorList(projCloud)
+        if SHADING_STYLE != NO_SHADING:
+            projCloud = projectToDisplayCoordinates(project(object.pointCloud, CAMERA_Z_OFFSET), CANVAS_WIDTH, CANVAS_HEIGHT) 
+            roundProjCloud = roundVectorList(projCloud)
 
-        vert0_normal = RowVector([0.0, 0.0, 0.0])
-        # find all polys that make use of this vertex and (conditionally) add their normals
-        # manual search due to rounding...
-        for i in range(len(roundProjCloud)):
-            if areSimilarPoints(e[0], roundProjCloud[i]):
-                vertInd = i
-                break
-        for p in range(len(object.polygons)):
-            if vertInd in object.polygons[p] and object.shadingOverride[p] != FLAT_SHADING:
-                vert0_normal = vert0_normal.add(surfaceNormal(object, object.polygons[p]))
-        vert0_normal = vert0_normal.normalize()
+            vert0_normal = RowVector([0.0, 0.0, 0.0])
+            # find all polys that make use of this vertex and (conditionally) add their normals
+            # manual search due to rounding...
+            for i in range(len(roundProjCloud)):
+                if areSimilarPoints(e[0], roundProjCloud[i]):
+                    vertInd = i
+                    break
+            for p in range(len(object.polygons)):
+                if vertInd in object.polygons[p] and object.shadingOverride[p] != FLAT_SHADING:
+                    vert0_normal = vert0_normal.add(surfaceNormal(object, object.polygons[p]))
+            vert0_normal = vert0_normal.normalize()
 
-        vert1_normal = RowVector([0.0, 0.0, 0.0])
-        # find all polys that make use of this vertex and (conditionally) add their normals
-        # manual search due to rounding...
-        for i in range(len(roundProjCloud)):
-            if areSimilarPoints(e[1], roundProjCloud[i]):
-                vertInd = i
-                break
-        for p in range(len(object.polygons)):
-            if vertInd in object.polygons[p] and object.shadingOverride[p] != FLAT_SHADING:
-                vert1_normal = vert1_normal.add(surfaceNormal(object, object.polygons[p]))
-        vert1_normal = vert1_normal.normalize()
+            vert1_normal = RowVector([0.0, 0.0, 0.0])
+            # find all polys that make use of this vertex and (conditionally) add their normals
+            # manual search due to rounding...
+            for i in range(len(roundProjCloud)):
+                if areSimilarPoints(e[1], roundProjCloud[i]):
+                    vertInd = i
+                    break
+            for p in range(len(object.polygons)):
+                if vertInd in object.polygons[p] and object.shadingOverride[p] != FLAT_SHADING:
+                    vert1_normal = vert1_normal.add(surfaceNormal(object, object.polygons[p]))
+            vert1_normal = vert1_normal.normalize()
 
-        L = RowVector(L_LIST).normalize()
-        V = RowVector(V_LIST).normalize()
+            L = RowVector(L_LIST).normalize()
+            V = RowVector(V_LIST).normalize()
 
         # fill in all statically calculated data - position and zbuf
         entry.xStart = e[0][0]
@@ -728,24 +741,25 @@ def computeEdgeTable(verts: list[Vector3], object: Object, poly: Polygon, surfN:
         entry.dX = (e[1][0] - e[0][0]) / (e[1][1] - e[0][1]) # run over rise 
         entry.zStart = e[0][2]
         entry.dZ = (e[1][2] - e[0][2]) / (e[1][1] - e[0][1]) # the cooler run over rise
+        
+        if SHADING_STYLE != NO_SHADING:
+            # fill in static data - gouraud shading
+            vert0_ambient, vert0_diffuse, vert0_specular = phong_illuminate(ILLUMINATION_KD, ILLUMINATION_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, vert0_normal)
+            vert1_ambient, vert1_diffuse, vert1_specular = phong_illuminate(ILLUMINATION_KD, ILLUMINATION_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, vert1_normal)
+            entry.gAStart = vert0_ambient
+            entry.gDStart = vert0_diffuse
+            entry.gSStart = vert0_specular
+            entry.gdA = ((vert1_ambient) - entry.gAStart) / (e[1][1] - e[0][1])
+            entry.gdD = ((vert1_diffuse) - entry.gDStart) / (e[1][1] - e[0][1])
+            entry.gdS = ((vert1_specular) - entry.gSStart) / (e[1][1] - e[0][1])
 
-        # fill in static data - gouraud shading
-        vert0_ambient, vert0_diffuse, vert0_specular = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, vert0_normal)
-        vert1_ambient, vert1_diffuse, vert1_specular = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, vert1_normal)
-        entry.gAStart = vert0_ambient
-        entry.gDStart = vert0_diffuse
-        entry.gSStart = vert0_specular
-        entry.gdA = ((vert1_ambient) - entry.gAStart) / (e[1][1] - e[0][1])
-        entry.gdD = ((vert1_diffuse) - entry.gDStart) / (e[1][1] - e[0][1])
-        entry.gdS = ((vert1_specular) - entry.gSStart) / (e[1][1] - e[0][1])
-
-        # fill in the static data - phong shading
-        entry.pXStart = vert0_normal.getElement(0, 0)
-        entry.pYStart = vert0_normal.getElement(1, 0)
-        entry.pZStart = vert0_normal.getElement(2, 0)
-        entry.pdX = ((vert1_normal.getElement(0, 0)) - entry.pXStart) / (e[1][1] - e[0][1])
-        entry.pdY = ((vert1_normal.getElement(1, 0)) - entry.pYStart) / (e[1][1] - e[0][1])
-        entry.pdZ = ((vert1_normal.getElement(2, 0)) - entry.pZStart) / (e[1][1] - e[0][1])
+            # fill in the static data - phong shading
+            entry.pXStart = vert0_normal.getElement(0, 0)
+            entry.pYStart = vert0_normal.getElement(1, 0)
+            entry.pZStart = vert0_normal.getElement(2, 0)
+            entry.pdX = ((vert1_normal.getElement(0, 0)) - entry.pXStart) / (e[1][1] - e[0][1])
+            entry.pdY = ((vert1_normal.getElement(1, 0)) - entry.pYStart) / (e[1][1] - e[0][1])
+            entry.pdZ = ((vert1_normal.getElement(2, 0)) - entry.pZStart) / (e[1][1] - e[0][1])
 
         edgeTable.append(entry)
 
