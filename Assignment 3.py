@@ -20,9 +20,9 @@ CAMERA_Z_OFFSET = 500
 
 PHONG_KD = 0.5
 PHONG_KS = 0.5
-SPEC_IND = 4.0
+SPEC_IND = 2.0
 AMBIENT_INT = 0.4
-DIFFUSE_INT = 0.7
+DIFFUSE_INT = 0.9
 
 NO_SHADING = 0
 FLAT_SHADING = 1
@@ -230,6 +230,14 @@ class EdgeEntry:
     gdD = None 
     gdS = None
 
+    # phong shading 
+    pXStart = None
+    pYStart = None
+    pZStart = None
+    pdX = None
+    pdY = None
+    pdZ = None
+
     # these fields will be filled out as they are calculated 
     def __init__(this, edgeName) -> None:
         this.edgeVerts = edgeName
@@ -415,6 +423,13 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
     edgeJGD = edgeTable[j].gDStart
     edgeIGS = edgeTable[i].gSStart
     edgeJGS = edgeTable[j].gSStart
+    # phong 
+    edgeIPX = edgeTable[i].pXStart
+    edgeJPX = edgeTable[j].pXStart
+    edgeIPY = edgeTable[i].pYStart
+    edgeJPY = edgeTable[j].pYStart
+    edgeIPZ = edgeTable[i].pZStart
+    edgeJPZ = edgeTable[j].pZStart
 
     # do painting loop 
     for y in range(int(firstY), int(lastY)): 
@@ -434,6 +449,13 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             edgeJGD += edgeTable[j].gdD
             edgeIGS += edgeTable[i].gdS
             edgeJGS += edgeTable[j].gdS
+            # phong 
+            edgeIPX += edgeTable[i].pdX
+            edgeJPX += edgeTable[j].pdX
+            edgeIPY += edgeTable[i].pdY
+            edgeJPY += edgeTable[j].pdY
+            edgeIPZ += edgeTable[i].pdZ
+            edgeJPZ += edgeTable[j].pdZ
 
             # reached the bottom of an edge, swap out
             if y >= edgeTable[i].yEnd and y < lastY:
@@ -444,6 +466,10 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
                 edgeIGA = edgeTable[i].gAStart
                 edgeIGD = edgeTable[i].gDStart
                 edgeIGS = edgeTable[i].gSStart
+                # phong
+                edgeIPX = edgeTable[i].pXStart
+                edgeIPY = edgeTable[i].pYStart
+                edgeIPZ = edgeTable[i].pZStart
                 next += 1
             if y >= edgeTable[j].yEnd and y < lastY: 
                 j = next
@@ -453,6 +479,10 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
                 edgeJGA = edgeTable[j].gAStart
                 edgeJGD = edgeTable[j].gDStart
                 edgeJGS = edgeTable[j].gSStart
+                # phong 
+                edgeJPX = edgeTable[j].pXStart
+                edgeJPY = edgeTable[j].pYStart
+                edgeJPZ = edgeTable[j].pZStart
                 next += 1
 
             continue
@@ -470,6 +500,13 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             rightGD = edgeJGD
             leftGS = edgeIGS
             rightGS = edgeJGS
+            # phong 
+            leftPX = edgeIPX
+            rightPX = edgeJPX
+            leftPY = edgeIPY
+            rightPY = edgeJPY
+            leftPZ = edgeIPZ
+            rightPZ = edgeJPZ
         else: 
             leftX = edgeJX
             rightX = edgeIX
@@ -482,6 +519,13 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             rightGD = edgeIGD
             leftGS = edgeJGS
             rightGS = edgeIGS
+            # phong 
+            leftPX = edgeJPX
+            rightPX = edgeIPX
+            leftPY = edgeJPY
+            rightPY = edgeIPY
+            leftPZ = edgeJPZ
+            rightPZ = edgeIPZ
 
         # initial z 
         z = leftZ
@@ -489,6 +533,10 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
         GA = leftGA
         GD = leftGD
         GS = leftGS
+        # inital phong normal
+        PX = leftPX
+        PY = leftPY
+        PZ = leftPZ
 
         # compute dZ for this fill line
         if rightZ - leftZ != 0:
@@ -512,6 +560,22 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
         else:
             dGSFill = 0
 
+        # compute phong X component for this fill line
+        if rightPX - leftPX != 0:
+            dPXFill = (rightPX - leftPX) / (rightX - leftX)
+        else:
+            dPXFill = 0
+        # compute phong Y component for this fill line
+        if rightPY - leftPY != 0:
+            dPYFill = (rightPY - leftPY) / (rightX - leftX)
+        else:
+            dPYFill = 0
+        # compute phong Z component for this fill line
+        if rightPZ - leftPZ != 0:
+            dPZFill = (rightPZ - leftPZ) / (rightX - leftX)
+        else:
+            dPZFill = 0
+
         # paint the line 
         # includes a little extra code to make the lines nice 
         for x in range(int(leftX), int(rightX)+1): # up to and including
@@ -520,21 +584,37 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
                 GA += dGAFill
                 GD += dGDFill
                 GS += dGSFill
+                PX += dPXFill
+                PY += dPYFill
+                PZ += dPZFill
                 continue
+
             if zBuffer.getElement(x, y) > z: # Z Buffer Check
                 if POLY_FILL:
                     use_color = polyColor
-                    if SHADING_STYLE == GOURAUD_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING:
+                    if SHADING_STYLE == GOURAUD_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING: # gouraud check
                         use_color = triColorHex(GA, GD, GS)
+                    if SHADING_STYLE == PHONG_SHADING and object.shadingOverride[polyIndex] != FLAT_SHADING:
+                        L = RowVector(L_LIST).normalize()
+                        V = RowVector(V_LIST).normalize()
+                        N = RowVector([PX, PY, PZ]).normalize()
+                        phong_ambient, phong_diffuse, phong_specular = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
+                        use_color = triColorHex(phong_ambient, phong_diffuse, phong_specular)
                     drawPixel(window, x, y, use_color)
+
                 if BESPOKE_OUTLINE:
                     if (x == int(leftX) or x == int(rightX) or y == int(firstY) or y == int(lastY)):
                         drawPixel(window, x, y, objColor)          
+
                 zBuffer.setElement(x, y, z)
+
             z += dZFill
             GA += dGAFill
             GD += dGDFill
             GS += dGSFill
+            PX += dPXFill
+            PY += dPYFill
+            PZ += dPZFill
 
         # update x and z values 
         edgeIX += edgeTable[i].dX
@@ -548,6 +628,13 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
         edgeJGD += edgeTable[j].gdD
         edgeIGS += edgeTable[i].gdS
         edgeJGS += edgeTable[j].gdS
+        # phong 
+        edgeIPX += edgeTable[i].pdX
+        edgeJPX += edgeTable[j].pdX
+        edgeIPY += edgeTable[i].pdY
+        edgeJPY += edgeTable[j].pdY
+        edgeIPZ += edgeTable[i].pdZ
+        edgeJPZ += edgeTable[j].pdZ
 
         # reached the bottom of an edge, swap out
         if y >= edgeTable[i].yEnd and y < lastY:
@@ -558,6 +645,10 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             edgeIGA = edgeTable[i].gAStart
             edgeIGD = edgeTable[i].gDStart
             edgeIGS = edgeTable[i].gSStart
+            # phong
+            edgeIPX = edgeTable[i].pXStart
+            edgeIPY = edgeTable[i].pYStart
+            edgeIPZ = edgeTable[i].pZStart
             next += 1
         if y >= edgeTable[j].yEnd and y < lastY: 
             j = next
@@ -567,6 +658,10 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly:
             edgeJGA = edgeTable[j].gAStart
             edgeJGD = edgeTable[j].gDStart
             edgeJGS = edgeTable[j].gSStart
+            # phong 
+            edgeJPX = edgeTable[j].pXStart
+            edgeJPY = edgeTable[j].pYStart
+            edgeJPZ = edgeTable[j].pZStart
             next += 1
 
 # helper to get the edge table constants
@@ -643,6 +738,14 @@ def computeEdgeTable(verts: list[Vector3], object: Object, poly: Polygon, surfN:
         entry.gdA = ((vert1_ambient) - entry.gAStart) / (e[1][1] - e[0][1])
         entry.gdD = ((vert1_diffuse) - entry.gDStart) / (e[1][1] - e[0][1])
         entry.gdS = ((vert1_specular) - entry.gSStart) / (e[1][1] - e[0][1])
+
+        # fill in the static data - phong shading
+        entry.pXStart = vert0_normal.getElement(0, 0)
+        entry.pYStart = vert0_normal.getElement(1, 0)
+        entry.pZStart = vert0_normal.getElement(2, 0)
+        entry.pdX = ((vert1_normal.getElement(0, 0)) - entry.pXStart) / (e[1][1] - e[0][1])
+        entry.pdY = ((vert1_normal.getElement(1, 0)) - entry.pYStart) / (e[1][1] - e[0][1])
+        entry.pdZ = ((vert1_normal.getElement(2, 0)) - entry.pZStart) / (e[1][1] - e[0][1])
 
         edgeTable.append(entry)
 
@@ -1019,7 +1122,22 @@ def fivePressed(event) -> None:
     drawAllObjects(w, selected_object_group)
 
 def sixPressed(event) -> None:
-    pass
+    global selected_object
+    global selected_object_group
+    global w
+    global object_group1
+    global object_group2
+    global SHADING_STYLE
+    global POLY_FILL
+    global DEFAULT_OUTLINE
+    global BESPOKE_OUTLINE
+
+    SHADING_STYLE = PHONG_SHADING
+    POLY_FILL = True
+    DEFAULT_OUTLINE = False
+    BESPOKE_OUTLINE = False
+    selected_object_group = object_group2
+    drawAllObjects(w, selected_object_group)
 
 # swap outline styles
 def sevenPressed(event) -> None:
