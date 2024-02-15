@@ -36,7 +36,7 @@ ROUNDING = True
 SHADING_STYLE = NO_SHADING
 
 L_LIST = [1, 1, -1]
-V_LIST = [0, 0, 1]
+V_LIST = [0, 0, -1]
 
 # point type hint 
 Vector3 = list[float, float, float]
@@ -939,9 +939,12 @@ def reflect(N: RowVector, L: RowVector) -> RowVector:
     if twoCosPhi == 0:
         for i in range(3):
             R.append(-L.getElement(i, 0))
-    else: 
+    elif twoCosPhi > 0: 
         for i in range(3):
             R.append(N.getElement(i, 0) - (L.getElement(i, 0) / twoCosPhi))
+    else:
+        for i in range(3):
+            R.append(-N.getElement(i, 0) + (L.getElement(i, 0) / twoCosPhi))
 
     R = RowVector(R)
 
@@ -964,7 +967,7 @@ def phong_illuminate(Kd: float, Ks: float, specIndex: float, Ia: float, Ip: floa
 
     diffuse = Ip * Kd * NdotL
     R = reflect(N, L)
-    RdotV = -R.dot(V)
+    RdotV = R.dot(V)
 
     if RdotV < 0:
         RdotV = 0
