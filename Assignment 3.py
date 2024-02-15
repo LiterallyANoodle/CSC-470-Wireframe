@@ -18,6 +18,12 @@ CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
 
+PHONG_KD = 0.5
+PHONG_KS = 0.5
+SPEC_IND = 4.0
+AMBIENT_INT = 0.4
+DIFFUSE_INT = 0.7
+
 NO_SHADING = 0
 FLAT_SHADING = 1
 GOURAUD_SHADING = 2
@@ -28,6 +34,9 @@ BESPOKE_OUTLINE = not DEFAULT_OUTLINE
 POLY_FILL = True
 ROUNDING = True
 SHADING_STYLE = NO_SHADING
+
+L_LIST = [1, 1, -1]
+V_LIST = [0, 0, 1]
 
 # point type hint 
 Vector3 = list[float, float, float]
@@ -48,6 +57,7 @@ class Object:
     anchorPoint: Vector3 = [0, 0, 0]
     outlineColor: str = "black"
     polyColor: list[str] = None
+    shadingOverride: list[int] = None
 
     def __init__(this, polygons, points, anchorPoint=None):
         this.polygons = polygons
@@ -126,6 +136,18 @@ class RowVector(Matrix):
         this.elements = elements
 
     # vector math 
+        
+    def add(this, other):
+
+        if this.width != other.width:
+            print("Can't add different length vectors.")
+            return
+        
+        sum = [0.0, 0.0, 0.0]
+        for i in range(len(this.elements)):
+            sum[i] = this.elements[i] + other.elements[i]
+
+        return RowVector(sum)
     
     # dot product 
     def dot(this, other) -> float:
@@ -315,16 +337,38 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
 
         # project the points in this poly into display
         points_projected_plane = project(points3D, CAMERA_Z_OFFSET)
-        points_projected_display = projectToDisplayCoordinates(points_projected_plane, window.winfo_reqwidth(), window.winfo_reqheight())
+        points_projected_display = projectToDisplayCoordinates(points_projected_plane, CANVAS_WIDTH, CANVAS_HEIGHT)
 
         # round the coordinates 
         if ROUNDING:
             points_projected_display = roundVectorList(points_projected_display)
 
+        # get surface normal
+        # make proper vectors of edges p0 -> p1 and p1 -> p2 
+        p0 = object.pointCloud[poly[0]]
+        p1 = object.pointCloud[poly[1]]
+        p2 = object.pointCloud[poly[2]]
+
+        P = RowVector([a - b for a,b in zip(p1, p0)])
+        Q = RowVector([a - b for a,b in zip(p2, p1)])
+
+        # take the cross product of these vectors and normalize 
+        N = P.cross(Q).normalize()
+
+        # calculate flat shading once for this poly
+        if SHADING_STYLE == FLAT_SHADING:
+            L = RowVector(L_LIST).normalize()
+            V = RowVector(V_LIST).normalize()
+            phong_intensity = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
+            phong_color = triColorHex(phong_intensity[0], phong_intensity[1], phong_intensity[2])
+
         if POLY_FILL or BESPOKE_OUTLINE:
             # fill in this polygon
             colorIndex = object.polygons.index(poly)
-            polyFill(window, points_projected_display, zBuffer, object.polyColor[colorIndex], object.outlineColor)
+            use_color = object.polyColor[colorIndex]
+            if SHADING_STYLE == FLAT_SHADING:
+                use_color = phong_color
+            polyFill(window, points_projected_display, zBuffer, object, poly, N, use_color, object.outlineColor)
     
         # make and draw each pair of points in order --> OUTLINE from tkinter
         if DEFAULT_OUTLINE:
@@ -334,10 +378,10 @@ def drawObject(window, object: Object, zBuffer: Matrix) -> None:
 
 # Fill in polygons function
 # points come into the function pre-projected as proj
-def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', objColor='black') -> None:
+def polyFill(window, proj: list[Vector3], zBuffer: Matrix, object: Object, poly: Polygon, surfN, polyColor='blue', objColor='black') -> None:
 
     # create edge table 
-    edgeTable = computeEdgeTable(proj)
+    edgeTable = computeEdgeTable(proj, object, poly, surfN)
 
     if edgeTable == []:
         return
@@ -438,7 +482,7 @@ def polyFill(window, proj: list[Vector3], zBuffer: Matrix, polyColor='blue', obj
             next += 1
 
 # helper to get the edge table constants
-def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
+def computeEdgeTable(verts: list[Vector3], object: Object, poly: Polygon, surfN: RowVector) -> list[EdgeEntry]:
     
     # make edges from each neighbor, but in such a way that all edges flow from the top to the bottom
     # this way, we can compare the data in the edge table for sorting instead of the individual edges
@@ -464,6 +508,36 @@ def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
     for e in edges:
         entry = EdgeEntry(e)
 
+        projCloud = projectToDisplayCoordinates(project(object.pointCloud, CAMERA_Z_OFFSET), CANVAS_WIDTH, CANVAS_HEIGHT) 
+        roundProjCloud = roundVectorList(projCloud)
+
+        vert0_normal = RowVector([0.0, 0.0, 0.0])
+        # find all polys that make use of this vertex and (conditionally) add their normals
+        # manual search due to rounding...
+        for i in range(len(roundProjCloud)):
+            if areSimilarPoints(e[0], roundProjCloud[i]):
+                vertInd = i
+                break
+        for p in range(len(object.polygons)):
+            if vertInd in object.polygons[p] and object.shadingOverride[p] != FLAT_SHADING:
+                vert0_normal = vert0_normal.add(surfaceNormal(object, object.polygons[p]))
+        vert0_normal = vert0_normal.normalize()
+
+        vert1_normal = RowVector([0.0, 0.0, 0.0])
+        # find all polys that make use of this vertex and (conditionally) add their normals
+        # manual search due to rounding...
+        for i in range(len(roundProjCloud)):
+            if areSimilarPoints(e[1], roundProjCloud[i]):
+                vertInd = i
+                break
+        for p in range(len(object.polygons)):
+            if vertInd in object.polygons[p] and object.shadingOverride[p] != FLAT_SHADING:
+                vert1_normal = vert1_normal.add(surfaceNormal(object, object.polygons[p]))
+        vert1_normal = vert1_normal.normalize()
+
+        L = RowVector(L_LIST).normalize()
+        V = RowVector(V_LIST).normalize()
+
         # fill in all statically calculated data - position and zbuf
         entry.xStart = e[0][0]
         entry.yStart = e[0][1]
@@ -472,15 +546,13 @@ def computeEdgeTable(verts: list[Vector3]) -> list[EdgeEntry]:
         entry.zStart = e[0][2]
         entry.dZ = (e[1][2] - e[0][2]) / (e[1][1] - e[0][1]) # the cooler run over rise
 
-        # fill in static data - flat shading
-        
+        # fill in static data - gouraud shading
+        entry.iStart = phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N)
+        entry.dI = (phong_illuminate(PHONG_KD, PHONG_KS, SPEC_IND, AMBIENT_INT, DIFFUSE_INT, L, V, N) - entry.iStart) / (e[1][1] - e[0][1])
 
         edgeTable.append(entry)
 
     return edgeTable
-
-def flat_shading(edgeTable: list[EdgeEntry], polyColor='#00FF00'):
-    pass
     
 
 # Project the 3D endpoints to 2D point using a perspective projection implemented in 'project'
@@ -527,8 +599,8 @@ def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) 
 # Check if two points occupy the same space 
 # Useful for determining possible duplicate points in an object 
 def areSimilarPoints(p1: Vector3, p2: Vector3) -> bool:
-    for i in len(p1):
-        if p1[i] != p2[2]:
+    for i in range(len(p1)):
+        if p1[i] != p2[i]:
             return False
     return True
 
@@ -667,22 +739,19 @@ def reflect(N: RowVector, L: RowVector) -> RowVector:
                      N.getElement(1, 0) * L.getElement(1, 0) + \
                      N.getElement(2, 0) * L.getElement(2, 0))
     
-    if twoCosPhi > 0:
-        for i in range(3):
-            R.append(N.getElement(i, 0) - (L.getElement(i, 0) / twoCosPhi))
-    elif twoCosPhi == 0:
+    if twoCosPhi == 0:
         for i in range(3):
             R.append(-L.getElement(i, 0))
     else: 
         for i in range(3):
-            R.append(-N.getElement(i, 0) + (L.getElement(i, 0) / twoCosPhi))
+            R.append(N.getElement(i, 0) - (L.getElement(i, 0) / twoCosPhi))
 
     R = RowVector(R)
 
     return R.normalize()
 
 # phong illumination from notes (render sphere)
-def phong_illuminate_color(Kd: float, Ks: float, specIndex: float, Ia: float, Ip: float, L: RowVector, V: RowVector, N: RowVector) -> str:
+def phong_illuminate(Kd: float, Ks: float, specIndex: float, Ia: float, Ip: float, L: RowVector, V: RowVector, N: RowVector) -> list[float]:
     
     # Normalize incoming vectors 
     L = L.normalize()
@@ -704,9 +773,22 @@ def phong_illuminate_color(Kd: float, Ks: float, specIndex: float, Ia: float, Ip
         RdotV = 0
 
     specular = Ip * Ks * (RdotV ** specIndex)
-    color = triColorHex(ambient, diffuse, specular)
 
-    return color
+    return [ambient, diffuse, specular]
+
+def surfaceNormal(object: Object, poly: Polygon) -> RowVector:
+    # make proper vectors of edges p0 -> p1 and p1 -> p2 
+    p0 = object.pointCloud[poly[0]]
+    p1 = object.pointCloud[poly[1]]
+    p2 = object.pointCloud[poly[2]]
+
+    P = RowVector([a - b for a,b in zip(p1, p0)])
+    Q = RowVector([a - b for a,b in zip(p2, p1)])
+
+    # take the cross product of these vectors and normalize 
+    N = P.cross(Q).normalize()
+
+    return N
 
 # color manipulations 
 def triColorHex(ambient, diffuse, specular) -> str:
@@ -1146,9 +1228,10 @@ if __name__ == "__main__":
     # create the tetrahedron object from defined data
     Oct = Object(oct_polys, oct_points)
     Oct.polyColor = ['#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00', '#00FF00']
+    Oct.shadingOverride = [None, None, None, None, None, None, None, None, FLAT_SHADING, FLAT_SHADING]
 
     # give a default position away from the origin 
-    setupObject(Oct, [0,0,0])
+    setupObject(Oct, [0,0,100])
 
     # ***************************** begin main instrucions *****************************
     root = Tk()
