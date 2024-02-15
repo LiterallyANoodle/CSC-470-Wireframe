@@ -20,9 +20,9 @@ CAMERA_Z_OFFSET = 500
 
 PHONG_KD = 0.5
 PHONG_KS = 0.5
-SPEC_IND = 2.0
+SPEC_IND = 7.0
 AMBIENT_INT = 0.4
-DIFFUSE_INT = 0.9
+DIFFUSE_INT = 0.7
 
 NO_SHADING = 0
 FLAT_SHADING = 1
@@ -964,12 +964,12 @@ def phong_illuminate(Kd: float, Ks: float, specIndex: float, Ia: float, Ip: floa
 
     diffuse = Ip * Kd * NdotL
     R = reflect(N, L)
-    RdotV = R.dot(V)
+    RdotV = -R.dot(V)
 
     if RdotV < 0:
         RdotV = 0
 
-    specular = Ip * Ks * (RdotV ** specIndex)
+    specular = Ip * Ks * RdotV ** specIndex
 
     return [ambient, diffuse, specular]
 
