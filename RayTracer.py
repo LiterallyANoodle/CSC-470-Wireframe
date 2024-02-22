@@ -32,7 +32,7 @@ MAX_RAY_TRACE_DEPTH = 3
 
 SKY_COLOR = [0.5, 0.5, 0.75]
 
-L_LIST = [1, 1, -1]
+LIGHT_POSITION = [500, 500, 0]
 V_LIST = [0, 0, -1]
 
 # point type hint 
@@ -61,7 +61,8 @@ class Primitive:
         self.refr_weight = refr_weight
 
     def intersect(self, start, ray) -> list[float]:
-        pass
+        print("Attempted to use Primitive Interface method.")
+        return None
 
 class Plane(Primitive):
     
@@ -76,6 +77,20 @@ class Plane(Primitive):
         super().__init__(Kd, Ks, spec_ind, local_weight, refl_weight, refr_weight)
         self.normal = normal
         self.anchor = anchor
+
+    def intersect(self, start, ray) -> list[float]:
+        [X1, Y1, Z1] = start
+        [i, j, k] = ray
+        D = dot(self.normal, self.anchor)
+        numerator = -(dot(self.normal, start) - D)
+        denominator = dot(self.normal, ray)
+        if denominator == 0:
+            return None
+        t = numerator / denominator
+        if t < 0:
+            return None
+        intersection = [X1 + i*t, Y1 + j*t, Z1 + k*t]
+        return { t: intersection }
 
 class Sphere(Primitive):
 
@@ -99,9 +114,28 @@ class Sphere(Primitive):
         self.color = color
         self.density = density
 
+    def intersect(self, start, ray) -> list[float]:
+        [X1, Y1, Z1] = start
+        [i, j, k] = ray
+        [l, m, n] = self.center
+        a = i**2 + j**2 + k**2
+        b = scalar_multiply(dot(ray, vector_sub(start, self.center)), 2)
+        c = (l**2 + m**2 + n**2) + \
+            (X1**2 + Y1**2 + Z1**2) + \
+            (2 * dot(vector_negate(self.center), start)) + \
+            (-self.r ** 2)
+        discriminant = (b**2) - (4 * a * c)
+        if discriminant < 0:
+            return None
+        t0 = (-b + (discriminant ** 0.5)) / (2 * a)
+        t1 = (-b - (discriminant ** 0.5)) / (2 * a)
+        t = min(t0, t1)
+        intersection = [ X1 + i*t, Y1 + j*t, Z1 + k*t ]
+        return { t: intersection }
+
 # ***************************** Functionality ***************************
         
-def trace_ray(start, ray, depth, object_list) -> Vector3:
+def trace_ray(start: Vector3, ray: Vector3, depth: int, object_list: list[Primitive], light: Vector3) -> Vector3:
 
     # return black when at bottom
     if depth == 0: return [0,0,0]
@@ -110,7 +144,9 @@ def trace_ray(start, ray, depth, object_list) -> Vector3:
     tMin = T_MAX
     intersection = None # point where intersect in 3d space
     for object in object_list:
-        intersection_dict = object.intersect(start, ray)    # keys: t, vals: 3d point of intersection at t
+        intersection_dict: dict = object.intersect(start, ray)    # keys: t, vals: 3d point of intersection at t
+        if intersection_dict == None:
+            continue
         intersection_t = intersection_dict.keys()
         if intersection_t != []:
             for t in intersection_t:        
@@ -176,16 +212,38 @@ def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) 
 
     return displayXYZ
 
+def RGB_hex():
+    pass
+
 def normalize(vec: Vector3):
     sum = 0
     for component in vec: sum += component ** 2
     mag = sum ** 0.5
     return [component / mag for component in vec]
 
-def render_image(w, L, illumination_saturation_counter, object_list) -> None:
+def dot(v1: Vector3, v2: Vector3) -> float:
+    sum = 0
+    for c1, c2 in zip(v1, v2): sum += c1 * c2
+    return sum
+
+def scalar_multiply(v: Vector3, s: float) -> Vector3:
+    return [s * c for c in v]
+
+def vector_add(v1: Vector3, v2: Vector3) -> Vector3:
+    return [c1 + c2 for c1,c2 in zip(v1, v2)]
+
+def vector_sub(v1: Vector3, v2: Vector3) -> Vector3:
+    return [c1 - c2 for c1,c2 in zip(v1, v2)]
+
+def vector_negate(v: Vector3) -> Vector3:
+    return [-c for c in v]
+
+def compute_unit_vector(screen_pos, camera):
+    return vector_sub(screen_pos, camera)
+
+def render_image(w, light, object_list) -> None:
 
     illumination_saturation_counter = 0
-    L = normalize(L)
 
     top = round(CANVAS_HEIGHT/2)
     bottom = round(-CANVAS_HEIGHT/2)
@@ -193,8 +251,8 @@ def render_image(w, L, illumination_saturation_counter, object_list) -> None:
     right = round(CANVAS_WIDTH/2)
     for y in range(top, bottom, -1):
         for x in range(left, right):
-            ray = compute_unit_vector(CAMERA_POSITION, [x, y, 0])
-            color = trace_ray(CAMERA_POSITION, ray, MAX_RAY_TRACE_DEPTH, object_list)
+            ray = compute_unit_vector([x, y, 0], CAMERA_POSITION)
+            color = trace_ray(CAMERA_POSITION, ray, MAX_RAY_TRACE_DEPTH, object_list, light)
             w.create_line(right+x, top-y, right+x+1, top-y, fill=RGB_hex(color))
     oversaturation = illumination_saturation_counter / (CANVAS_WIDTH*CANVAS_HEIGHT) * 100
     print(f"{illumination_saturation_counter} pixel color values were oversaturated: {oversaturation}%")
@@ -218,5 +276,7 @@ w.pack()
 
 controlpanel = Frame(outerframe)
 controlpanel.pack()
+
+render_image(w, LIGHT_POSITION, object_list)
 
 root.mainloop()
