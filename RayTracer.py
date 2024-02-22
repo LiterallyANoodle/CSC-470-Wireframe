@@ -23,17 +23,6 @@ SPEC_IND = 7.0
 AMBIENT_INT = 0.4
 DIFFUSE_INT = 0.7
 
-NO_SHADING = 0
-FLAT_SHADING = 1
-GOURAUD_SHADING = 2
-PHONG_SHADING = 3
-
-DEFAULT_OUTLINE = True
-BESPOKE_OUTLINE = not DEFAULT_OUTLINE
-POLY_FILL = True
-ROUNDING = True
-SHADING_STYLE = NO_SHADING
-
 L_LIST = [1, 1, -1]
 V_LIST = [0, 0, -1]
 
@@ -43,8 +32,61 @@ Vector2 = list[float, float]
 
 # primitives
 class Plane:
+    
+    # geometry
+    normal: Vector3 = None
+    anchor: Vector3 = None
 
-    normal = []
+    # phong model
+    Kd: float = None
+    Ks: float = None
+    spec_ind: int = None
+
+    # pathing model
+    local_weight: float = None
+    refl_weight: float = None
+
+    def __init__(self, normal: Vector3, anchor: Vector3, \
+                 Kd: float, Ks: float, spec_ind: int, \
+                 local_weight: float, refl_weight: float):
+        
+        self.normal = normal
+        self.anchor = anchor
+        self.Kd = Kd
+        self.Ks = Ks
+        self.spec_ind = spec_ind
+        self.local_weight = local_weight
+        self.refl_weight = refl_weight
+
+class Sphere:
+
+    # geometry
+    center: Vector3 = None
+    r: float = None
+
+    # Phong model 
+    color: Vector3 = None
+    Kd: float = None
+    Ks: float = None
+    spec_ind: int = None
+
+    # pathing model
+    local_weight: float = None
+    refl_weight: float = None 
+    density: float = None
+
+    def __init__(self, center: Vector3, r: float, \
+                 color: Vector3, Kd: float, Ks: float, spec_ind: int, \
+                 local_weight: float, refl_weight: float):
+        
+        self.center = center
+        self.r = r
+        self.color = color
+        self.Kd = Kd
+        self.Ks = Ks
+        self.spec_ind = spec_ind
+        self.local_weight = local_weight
+        self.refl_weight = refl_weight
 
 # ***************************** Initialize Sphere1 Object ***************************
 
