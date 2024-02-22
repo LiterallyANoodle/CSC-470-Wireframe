@@ -16,6 +16,7 @@ from tkinter import *
 CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
+CAMERA_POSITION = [0, 0, CAMERA_Z_OFFSET]
 T_MAX = 999999
 
 ILLUMINATION_KD = 0.5
@@ -100,7 +101,7 @@ class Sphere(Primitive):
 
 # ***************************** Functionality ***************************
         
-def trace_ray(start, ray, depth, object_list):
+def trace_ray(start, ray, depth, object_list) -> Vector3:
 
     # return black when at bottom
     if depth == 0: return [0,0,0]
@@ -174,6 +175,29 @@ def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) 
         displayXYZ.append([x_proj, y_proj, point[2]]) # leave z in unaffected 
 
     return displayXYZ
+
+def normalize(vec: Vector3):
+    sum = 0
+    for component in vec: sum += component ** 2
+    mag = sum ** 0.5
+    return [component / mag for component in vec]
+
+def render_image(w, L, illumination_saturation_counter, object_list) -> None:
+
+    illumination_saturation_counter = 0
+    L = normalize(L)
+
+    top = round(CANVAS_HEIGHT/2)
+    bottom = round(-CANVAS_HEIGHT/2)
+    left = round(-CANVAS_WIDTH/2)
+    right = round(CANVAS_WIDTH/2)
+    for y in range(top, bottom, -1):
+        for x in range(left, right):
+            ray = compute_unit_vector(CAMERA_POSITION, [x, y, 0])
+            color = trace_ray(CAMERA_POSITION, ray, MAX_RAY_TRACE_DEPTH, object_list)
+            w.create_line(right+x, top-y, right+x+1, top-y, fill=RGB_hex(color))
+    oversaturation = illumination_saturation_counter / (CANVAS_WIDTH*CANVAS_HEIGHT) * 100
+    print(f"{illumination_saturation_counter} pixel color values were oversaturated: {oversaturation}%")
 
 # ***************************** Initialize Sphere1 Object ***************************
 
