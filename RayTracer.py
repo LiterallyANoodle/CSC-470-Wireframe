@@ -24,10 +24,10 @@ AMBIENT_INT = 0.7
 AIR_DENSITY = 1.0
 GLASS_DENSITY = 2.4
 GAMMA_CORRECTION = 2
-MAX_RAY_TRACE_DEPTH = 2
-LIGHT_INTENSITY = 1.5
+MAX_RAY_TRACE_DEPTH = 4
+LIGHT_INTENSITY = 1
 
-SKY_COLOR = [0.5, 0.4, 0.95]
+SKY_COLOR = [0.7, 0.5, 1.0]
 LIGHT_POSITION = [500, 500, 0]
 
 # point type hint 
@@ -223,7 +223,7 @@ def trace_ray(start: Vector3, ray: Vector3, depth: int, object_list: list[Primit
 
     # mix local color
     intensity = nearest_object.get_intensity(intersection, light, ray)
-    # if in_shadow(nearest_object, intersection): intensity *= 0.25
+    if in_shadow(nearest_object, intersection, object_list, light): intensity *= 0.25
     local_color = [c*GAMMA_CORRECTION*intensity for c in nearest_object.get_color(intersection)]
 
     # mix local color and returned colors
@@ -238,7 +238,13 @@ def trace_ray(start: Vector3, ray: Vector3, depth: int, object_list: list[Primit
     return final_color
 
 # detect shadowing
-def in_shadow():
+def in_shadow(start_object: Primitive, start_point: Vector3, object_list: list[Primitive], light: Vector3) -> bool:
+    ray = compute_unit_vector(start_point, light)
+    for object in object_list:
+        if object == start_object:
+            continue
+        if object.intersect(start_point, ray) != None:
+            return True
     return False
 
 def clamp(input: float, small: float, big: float) -> float:
@@ -312,8 +318,15 @@ def render_image(w, light, object_list) -> None:
 
 # ***************************** Initialize Objects ***************************
 
-Plane1 = Plane([0,1,0], [0, -300, 0], 0.6, 0.4, 8, 0.5, 0.5, 0.25)
-Sphere1 = Sphere([50, -20, -100], 50, [1.0, 0.0, 0.0], 0.5, 0.5, 8, 0.5, 0.5, 0.25, GLASS_DENSITY)
+Plane1 = Plane([0,1,0], [0, -200, 0], 0.5, 0.5, 8, 0.5, 0.5, 0.25)
+Sphere1 = Sphere([100, 0, 500], 200, \
+                 color=[0.15, 0.55, 0.75], \
+                 Kd=0.5, Ks=0.5, spec_ind=8, \
+                 local_weight=0.3, refl_weight=0.7, refr_weight=0.25, density=GLASS_DENSITY)
+Sphere2 = Sphere([-200, -100, 300], 100, \
+                 color=[0.85, 0.75, 0.45], \
+                 Kd=0.5, Ks=0.5, spec_ind=3, \
+                 local_weight=0.85, refl_weight=0.15, refr_weight=0.25, density=GLASS_DENSITY)
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -323,7 +336,7 @@ outerframe = Frame(root)
 outerframe.pack()
 
 w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT)
-object_list = [Plane1, Sphere1]
+object_list = [Plane1, Sphere1, Sphere2]
 w.pack()
 
 controlpanel = Frame(outerframe)
