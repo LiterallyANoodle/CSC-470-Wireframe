@@ -20,7 +20,7 @@ CAMERA_POSITION = [0, 0, -CAMERA_Z_OFFSET]
 T_MAX = 999999
 HORIZON = 2000
 
-AMBIENT_INT = 0.4
+AMBIENT_INT = 0.7
 AIR_DENSITY = 1.0
 GLASS_DENSITY = 2.4
 GAMMA_CORRECTION = 2
@@ -114,7 +114,7 @@ class Plane(Primitive):
         reflection = normalize(vector_reflect(normal, to_light))
 
         ambient = AMBIENT_INT * self.Kd
-        diffuse = (LIGHT_INTENSITY * self.Kd * dot(normal, to_light)) / distance # TODO: Check if realism is fine here
+        diffuse = (LIGHT_INTENSITY * self.Kd * dot(normal, to_light)) / distance ** 2 # TODO: Check if realism is fine here
         specular = LIGHT_INTENSITY * self.Ks * (dot(reflection, normalize(vector_negate(ray))) ** self.spec_ind)
 
         return ambient + diffuse + specular
@@ -185,7 +185,7 @@ class Sphere(Primitive):
         if RdotV < 0: RdotV = 0
 
         ambient = AMBIENT_INT * self.Kd
-        diffuse = (LIGHT_INTENSITY * self.Kd * NdotL) / distance # TODO: Check if realism is fine here
+        diffuse = (LIGHT_INTENSITY * self.Kd * NdotL) / distance ** 2 # TODO: Check if realism is fine here
         specular = LIGHT_INTENSITY * self.Ks * (RdotV ** self.spec_ind)
 
         return ambient + diffuse + specular
