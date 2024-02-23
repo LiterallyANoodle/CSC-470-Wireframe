@@ -16,24 +16,19 @@ from tkinter import *
 CANVAS_WIDTH = 400
 CANVAS_HEIGHT = 400
 CAMERA_Z_OFFSET = 500
-CAMERA_POSITION = [0, 0, CAMERA_Z_OFFSET]
+CAMERA_POSITION = [0, 0, -CAMERA_Z_OFFSET]
 T_MAX = 999999
+HORIZON = 2000
 
-ILLUMINATION_KD = 0.5
-ILLUMINATION_KS = 0.5
-SPEC_IND = 7.0
 AMBIENT_INT = 0.4
-DIFFUSE_INT = 0.7
-
 AIR_DENSITY = 1.0
 GLASS_DENSITY = 2.4
 GAMMA_CORRECTION = 2
-MAX_RAY_TRACE_DEPTH = 3
+MAX_RAY_TRACE_DEPTH = 2
+LIGHT_INTENSITY = 1.0
 
-SKY_COLOR = [0.5, 0.5, 0.75]
-
+SKY_COLOR = [0.4, 0.3, 0.85]
 LIGHT_POSITION = [500, 500, 0]
-V_LIST = [0, 0, -1]
 
 # point type hint 
 Vector3 = list[float, float, float]
@@ -63,6 +58,18 @@ class Primitive:
     def intersect(self, start, ray) -> list[float]:
         print("Attempted to use Primitive Interface method.")
         return None
+    
+    def get_intensity(self, intersection, light, ray) -> float:
+        print("Attempted to use Primitive Interface method.")
+        return None
+    
+    def get_color(self, intersection) -> Vector3:
+        print("Attempted to use Primitive Interface method.")
+        return None
+    
+    def reflect_ray(self, ray, intersection) -> Vector3:
+        print("Attempted to use Primitive Interface method.")
+        return None
 
 class Plane(Primitive):
     
@@ -70,14 +77,20 @@ class Plane(Primitive):
     normal: Vector3 = None
     anchor: Vector3 = None
 
+    # pathing model 
+    colors: list[Vector3] = [[1, 1, 1], [0.75, 0.10, 0.75]] # white and purple
+    checker_size: int = 100
+
+    # constructor
     def __init__(self, normal: Vector3, anchor: Vector3, \
                  Kd: float, Ks: float, spec_ind: int, \
                  local_weight: float, refl_weight: float, refr_weight: float):
         
         super().__init__(Kd, Ks, spec_ind, local_weight, refl_weight, refr_weight)
-        self.normal = normal
+        self.normal = normalize(normal)
         self.anchor = anchor
 
+    # methods
     def intersect(self, start, ray) -> list[float]:
         [X1, Y1, Z1] = start
         [i, j, k] = ray
@@ -87,10 +100,33 @@ class Plane(Primitive):
         if denominator == 0:
             return None
         t = numerator / denominator
-        if t < 0:
-            return None
         intersection = [X1 + i*t, Y1 + j*t, Z1 + k*t]
+        if t < 0.001 or intersection[2] > HORIZON:  # ignore self, clipping planes
+            return None
         return { t: intersection }
+    
+    def get_intensity(self, intersection, light_position, ray) -> float:
+        
+        distance = vector_distance(intersection, light_position)
+        normal = normalize(self.normal)
+        to_light = normalize(vector_sub(light_position, intersection))
+        reflection = vector_reflect(normal, to_light)
+
+        ambient = AMBIENT_INT * self.Kd
+        diffuse = (LIGHT_INTENSITY * self.Kd * dot(normal, to_light)) / distance # TODO: Check if realism is fine here
+        specular = LIGHT_INTENSITY * self.Ks * (dot(reflection, normalize(vector_negate(ray))) ** self.spec_ind)
+
+        return ambient + diffuse + specular
+    
+    def get_color(self, intersection) -> Vector3:
+        [x, _, z] = intersection
+        quotient_x = int(x // self.checker_size)  # in this house, we use modular arithmetic!
+        quotient_z = int(z // self.checker_size)
+        color_index = (quotient_x + quotient_z) % len(self.colors)
+        return self.colors[color_index]
+    
+    def reflect_ray(self, ray, intersection) -> Vector3:
+        return normalize(vector_reflect(normalize(self.normal), normalize(vector_negate(ray))))
 
 class Sphere(Primitive):
 
@@ -119,7 +155,7 @@ class Sphere(Primitive):
         [i, j, k] = ray
         [l, m, n] = self.center
         a = i**2 + j**2 + k**2
-        b = scalar_multiply(dot(ray, vector_sub(start, self.center)), 2)
+        b = dot(ray, vector_sub(start, self.center)) * 2
         c = (l**2 + m**2 + n**2) + \
             (X1**2 + Y1**2 + Z1**2) + \
             (2 * dot(vector_negate(self.center), start)) + \
@@ -131,7 +167,28 @@ class Sphere(Primitive):
         t1 = (-b - (discriminant ** 0.5)) / (2 * a)
         t = min(t0, t1)
         intersection = [ X1 + i*t, Y1 + j*t, Z1 + k*t ]
+        if t < 0.001 or intersection[2] > HORIZON:  # ignore self, clipping planes
+            return None
         return { t: intersection }
+    
+    def get_intensity(self, intersection, light_position, ray) -> float:
+        
+        distance = vector_distance(intersection, light_position)
+        normal = normalize(vector_sub(intersection, self.center))
+        to_light = normalize(vector_sub(light_position, intersection))
+        reflection = vector_reflect(normal, to_light)
+
+        ambient = AMBIENT_INT * self.Kd
+        diffuse = (LIGHT_INTENSITY * self.Kd * dot(normal, to_light)) / distance # TODO: Check if realism is fine here
+        specular = LIGHT_INTENSITY * self.Ks * (dot(reflection, normalize(vector_negate(ray))) ** self.spec_ind)
+
+        return ambient + diffuse + specular
+    
+    def get_color(self, intersection) -> Vector3:
+        return self.color
+    
+    def reflect_ray(self, ray, intersection) -> Vector3:
+        return normalize(vector_reflect(normalize(vector_sub(intersection, self.center)), normalize(vector_negate(ray))))
 
 # ***************************** Functionality ***************************
         
@@ -149,7 +206,7 @@ def trace_ray(start: Vector3, ray: Vector3, depth: int, object_list: list[Primit
             continue
         intersection_t = intersection_dict.keys()
         if intersection_t != []:
-            for t in intersection_t:        
+            for t in intersection_t:       
                 if t < tMin:
                     tMin = t
                     nearest_object: Primitive = object
@@ -159,75 +216,50 @@ def trace_ray(start: Vector3, ray: Vector3, depth: int, object_list: list[Primit
     if intersection == None: return SKY_COLOR
 
     # mix local color
-    intensity = nearest_object.get_intensity()
-    if in_shadow(nearest_object, intersection): intensity *= 0.25
-    local_color = [c*GAMMA_CORRECTION for c in nearest_object.get_color(intersection)]
-    local_weight = nearest_object.local_weight
+    intensity = nearest_object.get_intensity(intersection, light, ray)
+    # if in_shadow(nearest_object, intersection): intensity *= 0.25
+    local_color = [c*GAMMA_CORRECTION*intensity for c in nearest_object.get_color(intersection)]
 
     # mix local color and returned colors
-    refl_color = trace_ray(intersection, nearest_object.reflect_ray(), depth-1)
-    refr_color = trace_ray(intersection, nearest_object.refract_ray(), depth-1)
+    refl_color = trace_ray(intersection, nearest_object.reflect_ray(ray, intersection), depth-1, object_list, light)
+    # refr_color = trace_ray(intersection, nearest_object.refract_ray(ray), depth-1)
 
     final_color = [nearest_object.local_weight*local_color[c] + \
-                   nearest_object.refl_weight*refl_color[c] + \
-                   nearest_object.refr_weight*refr_color[c] \
+                   nearest_object.refl_weight*refl_color[c]  \
+                #    nearest_object.refr_weight*refr_color[c] \
                    for c in range(len(local_color))]
     
     return final_color
 
 # detect shadowing
 def in_shadow():
-    pass
+    return False
 
-# The function will draw an object by repeatedly callying drawPoly on each polygon in the object
-def drawObject(object):
-    print("drawObject stub executed.")
+def clamp(input: float, small: float, big: float) -> float:
+    if input < small:
+        return small
+    elif input > big:
+        return big
+    else:
+        return input
 
-# This function converts from 3D to 2D (+ depth) using the perspective projection technique.  Note that it
-# will return a NEW list of points.  We will not want to keep around the projected points in our object as
-# they are only used in rendering
-def project(points: list[Vector3], distance: float) -> list[Vector3]:
-    
-    ps = []
-    
-    for point in points:
-        x_proj = distance * (point[0] / (distance + point[2]))
-        y_proj = distance * (point[1] / (distance + point[2]))
-        z_proj = distance * (point[2] / (distance + point[2]))
-        ps.append([x_proj, y_proj, z_proj])
+def RGB_hex(color: Vector3):
+    color = [clamp(c, 0.0, 1.0) for c in color]
+    # using floor instead of rounding because in previous assignments, rounding caused some strange banding
+    RGB = [math.floor(c * 255) for c in color] 
+    color_hexes = [f'{c:0>2x}'.format() for c in RGB]
+    color_str = f'#{color_hexes[0]}{color_hexes[1]}{color_hexes[2]}'
+    return color_str
 
-    return ps
-
-# This function converts a 2D point to display coordinates in the tk system.  Note that it will return a
-# NEW list of points.  We will not want to keep around the display coordinate points in our object as 
-# they are only used in rendering.
-def projectToDisplayCoordinates(points: list[Vector2], width: int, height: int) -> list[Vector3]:
-    
-    displayXYZ = []
-
-    for point in points:
-        x_proj = (width / 2) + point[0]
-        y_proj = (height / 2) - point[1]
-        displayXYZ.append([x_proj, y_proj, point[2]]) # leave z in unaffected 
-
-    return displayXYZ
-
-def RGB_hex():
-    pass
-
-def normalize(vec: Vector3):
-    sum = 0
-    for component in vec: sum += component ** 2
-    mag = sum ** 0.5
-    return [component / mag for component in vec]
+def normalize(v: Vector3):
+    mag = sum([c ** 2 for c in v]) ** 0.5
+    return [c / mag for c in v]
 
 def dot(v1: Vector3, v2: Vector3) -> float:
-    sum = 0
-    for c1, c2 in zip(v1, v2): sum += c1 * c2
-    return sum
+    return sum([c1 * c2 for c1, c2 in zip(v1, v2)])
 
 def scalar_multiply(v: Vector3, s: float) -> Vector3:
-    return [s * c for c in v]
+    return [(c * s) for c in v]
 
 def vector_add(v1: Vector3, v2: Vector3) -> Vector3:
     return [c1 + c2 for c1,c2 in zip(v1, v2)]
@@ -238,8 +270,23 @@ def vector_sub(v1: Vector3, v2: Vector3) -> Vector3:
 def vector_negate(v: Vector3) -> Vector3:
     return [-c for c in v]
 
-def compute_unit_vector(screen_pos, camera):
-    return vector_sub(screen_pos, camera)
+def vector_distance(v1: Vector3, v2: Vector3) -> Vector3:
+    return sum([(c2 - c1) ** 2 for c1, c2 in zip(v1, v2)]) ** 0.5
+
+def vector_reflect(N, L) -> Vector3:
+    N = normalize(N)
+    L = normalize(L)
+    two_cos_phi = 2 * dot(N, L)
+    if two_cos_phi == 0:
+        R = [-l for l in L]
+    elif two_cos_phi > 0:
+        R = [n - (l / two_cos_phi) for n,l in zip(N, L)]
+    else:
+        R = [-n + (l / two_cos_phi) for n,l in zip(N, L)]
+    return normalize(R)
+
+def compute_unit_vector(start, end):
+    return normalize(vector_sub(end, start))
 
 def render_image(w, light, object_list) -> None:
 
@@ -251,16 +298,16 @@ def render_image(w, light, object_list) -> None:
     right = round(CANVAS_WIDTH/2)
     for y in range(top, bottom, -1):
         for x in range(left, right):
-            ray = compute_unit_vector([x, y, 0], CAMERA_POSITION)
+            ray = compute_unit_vector(CAMERA_POSITION, [x, y, 0]) # TODO: Check that this is correct to normalize
             color = trace_ray(CAMERA_POSITION, ray, MAX_RAY_TRACE_DEPTH, object_list, light)
             w.create_line(right+x, top-y, right+x+1, top-y, fill=RGB_hex(color))
     oversaturation = illumination_saturation_counter / (CANVAS_WIDTH*CANVAS_HEIGHT) * 100
     print(f"{illumination_saturation_counter} pixel color values were oversaturated: {oversaturation}%")
 
-# ***************************** Initialize Sphere1 Object ***************************
+# ***************************** Initialize Objects ***************************
 
-Sphere1 = Sphere([50, 25, 0], 50, [1.0, 0.0, 0.0], 0.5, 0.5, 8, 0.5, 0.25, 0.25, GLASS_DENSITY)
-    
+Plane1 = Plane([0,1,0], [0, -300, 0], 0.6, 0.4, 8, 0.5, 0.5, 0.25)
+Sphere1 = Sphere([50, -20, -100], 50, [1.0, 0.0, 0.0], 0.5, 0.5, 8, 0.5, 0.5, 0.25, GLASS_DENSITY)
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -270,8 +317,7 @@ outerframe = Frame(root)
 outerframe.pack()
 
 w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT)
-object_list = [Sphere1]
-drawObject(Sphere1)
+object_list = [Plane1, Sphere1]
 w.pack()
 
 controlpanel = Frame(outerframe)
