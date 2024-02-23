@@ -25,9 +25,9 @@ AIR_DENSITY = 1.0
 GLASS_DENSITY = 2.4
 GAMMA_CORRECTION = 2
 MAX_RAY_TRACE_DEPTH = 2
-LIGHT_INTENSITY = 1.0
+LIGHT_INTENSITY = 1.5
 
-SKY_COLOR = [0.4, 0.3, 0.85]
+SKY_COLOR = [0.5, 0.4, 0.95]
 LIGHT_POSITION = [500, 500, 0]
 
 # point type hint 
@@ -78,7 +78,8 @@ class Plane(Primitive):
     anchor: Vector3 = None
 
     # pathing model 
-    colors: list[Vector3] = [[1, 1, 1], [0.75, 0.10, 0.75]] # white and purple
+    # colors: list[Vector3] = [[1, 1, 1], [0.75, 0.10, 0.75]] # white and purple
+    colors: list[Vector3] = [[1, 1, 1], [1.0, 0.0, 0.0]] # white and red
     checker_size: int = 100
 
     # constructor
@@ -110,7 +111,7 @@ class Plane(Primitive):
         distance = vector_distance(intersection, light_position)
         normal = normalize(self.normal)
         to_light = normalize(vector_sub(light_position, intersection))
-        reflection = vector_reflect(normal, to_light)
+        reflection = normalize(vector_reflect(normal, to_light))
 
         ambient = AMBIENT_INT * self.Kd
         diffuse = (LIGHT_INTENSITY * self.Kd * dot(normal, to_light)) / distance # TODO: Check if realism is fine here
@@ -177,10 +178,15 @@ class Sphere(Primitive):
         normal = normalize(vector_sub(intersection, self.center))
         to_light = normalize(vector_sub(light_position, intersection))
         reflection = vector_reflect(normal, to_light)
+        NdotL = dot(normal, to_light)
+        RdotV = dot(reflection, normalize(vector_negate(ray)))
+        
+        if NdotL < 0: NdotL = 0
+        if RdotV < 0: RdotV = 0
 
         ambient = AMBIENT_INT * self.Kd
-        diffuse = (LIGHT_INTENSITY * self.Kd * dot(normal, to_light)) / distance # TODO: Check if realism is fine here
-        specular = LIGHT_INTENSITY * self.Ks * (dot(reflection, normalize(vector_negate(ray))) ** self.spec_ind)
+        diffuse = (LIGHT_INTENSITY * self.Kd * NdotL) / distance # TODO: Check if realism is fine here
+        specular = LIGHT_INTENSITY * self.Ks * (RdotV ** self.spec_ind)
 
         return ambient + diffuse + specular
     
