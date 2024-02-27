@@ -35,6 +35,7 @@ Vector3 = list[float, float, float]
 Vector2 = list[float, float]
 
 # primitives
+# This is an abstract class
 class Primitive:
 
     # phong model
@@ -324,9 +325,13 @@ Sphere1 = Sphere([100, 0, 500], 200, \
                  Kd=0.5, Ks=0.5, spec_ind=8, \
                  local_weight=0.3, refl_weight=0.7, refr_weight=0.25, density=GLASS_DENSITY)
 Sphere2 = Sphere([-200, -100, 300], 100, \
-                 color=[0.85, 0.75, 0.45], \
+                 color=[0.95, 0.50, 0.45], \
                  Kd=0.5, Ks=0.5, spec_ind=3, \
                  local_weight=0.85, refl_weight=0.15, refr_weight=0.25, density=GLASS_DENSITY)
+Sphere3 = Sphere([0, -125, 100], 75, \
+                 color=[0.45, 0.95, 0.55], \
+                 Kd=0.5, Ks=0.5, spec_ind=3, \
+                 local_weight=0.45, refl_weight=0.55, refr_weight=0.25, density=GLASS_DENSITY)
 
 # **************************************************************************
 # Everything below this point implements the interface
@@ -336,7 +341,7 @@ outerframe = Frame(root)
 outerframe.pack()
 
 w = Canvas(outerframe, width=CANVAS_WIDTH, height=CANVAS_HEIGHT)
-object_list = [Plane1, Sphere1, Sphere2]
+object_list = [Plane1, Sphere1, Sphere2, Sphere3]
 w.pack()
 
 controlpanel = Frame(outerframe)
